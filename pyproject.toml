@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "leitor-documentos-granto"
+version = "0.1.0"
+description = ""
+authors = ["antonio <aaba03@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.111.0"
+llama-index-core = "^0.10.43"
+llama-index-readers-file = "^0.1.23"
+llama-index-llms-ollama = "^0.1.5"
+llama-index-embeddings-huggingface = "^0.2.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
