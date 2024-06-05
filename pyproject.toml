@@ -12,6 +12,7 @@ llama-index-core = "^0.10.43"
 llama-index-readers-file = "^0.1.23"
 llama-index-llms-ollama = "^0.1.5"
 llama-index-embeddings-huggingface = "^0.2.1"
+python-multipart = "^0.0.9"
 
 
 [build-system]
