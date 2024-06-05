@@ -1,6 +1,7 @@
 from typing import Annotated
 from fastapi import FastAPI, Path, UploadFile
 from os import path, mkdir
+from app.engine.loaders import get_file_document
 import uuid
 
 app = FastAPI()
@@ -15,12 +16,14 @@ def query_index():
     global index
 
 ## rota para pegar um documento específico, nao implementada 100%
+## por enquanto retornando o pdf parseado para markdown
+## essta implementado errado, ainda falta mais etapas
 @app.get("/document/{document_id}")
-def get_document(document_id: Annotated[int, Path(title="The ID of the document to get", gt=0)]):
-    return {"document_id": document_id}
-
+def get_document(document_id: Annotated[str, Path(title="The ID of the document to get")]):
+    return get_file_document(document_id)
+    
 ## endpoint to save document in contracts folder, change status return later and return object with id
-@app.post("/document")
+@app.post("/upload")
 async def upload_document(file: UploadFile):
     try:
         contract_id = uuid.uuid1()
@@ -30,3 +33,4 @@ async def upload_document(file: UploadFile):
         return {"filename": file.filename, "id": contract_id }
     except Exception as e:
         return {"error": str(e)}
+

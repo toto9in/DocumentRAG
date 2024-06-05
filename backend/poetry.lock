@@ -939,6 +939,20 @@ striprtf = ">=0.0.26,<0.0.27"
 pymupdf = ["pymupdf (>=1.23.21,<2.0.0)"]
 
 [[package]]
+name = "llama-parse"
+version = "0.4.4"
+description = "Parse files into RAG-Optimized formats."
+optional = false
+python-versions = "<4.0,>=3.8.1"
+files = [
+    {file = "llama_parse-0.4.4-py3-none-any.whl", hash = "sha256:bb9724d04fd31ed037000896c7cef7fcb9051325497db4592a15f8144754cd00"},
+    {file = "llama_parse-0.4.4.tar.gz", hash = "sha256:b45c2db33a0d6b7a2d5f59e3d0ec7ee7f8227a852eaa56b04aa12b12f2c0d521"},
+]
+
+[package.dependencies]
+llama-index-core = ">=0.10.29"
+
+[[package]]
 name = "llamaindex-py-client"
 version = "0.1.19"
 description = ""
@@ -3465,4 +3479,4 @@ multidict = ">=4.0"
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "e51bb3ccf2af52499b5323abbc76fd61418aee0e182f405a3206a81dea3ea472"
+content-hash = "12b574e45a7042db2758da514889815984d04b4f1c270fdd164967e39e95b99b"
