@@ -1,10 +1,17 @@
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from typing import Annotated
 from fastapi import FastAPI, Path, UploadFile
 from os import path, mkdir
 from app.engine.loaders import get_file_document
 import uuid
+from app.settings import init_settings
 
 app = FastAPI()
+
+init_settings()
 
 @app.get("/")
 def hello():

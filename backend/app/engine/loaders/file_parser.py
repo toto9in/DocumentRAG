@@ -21,7 +21,7 @@ def llama_parse_parser():
             "LLAMA_CLOUD_API_KEY environment variable is not set. "
             "Please set it in .env file or in your shell environment then run again!"
         )
-    parser = LlamaParse(result_type="markdown", verbose=True, language="pt")
+    parser = LlamaParse(result_type="markdown", language="pt")
     return parser
 
 def get_file_documents(contract_id: str, config: FileLoaderParserConfig):
