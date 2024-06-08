@@ -1,17 +1,26 @@
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
-from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings
+from llama_index.core import VectorStoreIndex, SimpleDirectoryReader, Settings, SummaryIndex
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.llms.ollama import Ollama
 from llama_index.core import Settings
 from llama_index.core.node_parser import SentenceSplitter
 import os
+from llama_index.core.prompts import PromptTemplate
+
 
 from llama_parse import LlamaParse
 
-Settings.chunk_size = 200
+
+class JsonResponse(BaseModel):
+    nome_contratante: str = Field(description="Nome do contratante")
+    cnpj_contratante: str = Field(description="CNPJ do contratante")
+    nome_contratado: str = Field(description="Nome do contratado")
+    cnpj_contratado: str = Field(description="CNPJ do contratado")
+
 
 def llama_parse_parser():
     if os.getenv("LLAMA_CLOUD_API_KEY") is None:
@@ -34,12 +43,18 @@ documents = reader.load_data()
 Settings.embed_model = HuggingFaceEmbedding(model_name="BAAI/bge-base-en-v1.5")
 
 # ollama, using ollama to run llama3
-Settings.llm = Ollama(model="llama3", request_timeout=360.0)
+llm = Ollama(model="llama3", request_timeout=360.0)
+Settings.llm = llm
 
-index = VectorStoreIndex.from_documents(
-    documents, transformations=[SentenceSplitter(chunk_size=200)]
+index = SummaryIndex.from_documents(
+    documents, transformations=[SentenceSplitter(chunk_size=1024)]
 )
 
-query_engine = index.as_query_engine()
-response = query_engine.query("nome contratante")
+print(documents[0].text[:2000])
+prompt_tmpl = PromptTemplate("O texto de exemplo eh um contrato, extraia dele o nome do contratante que está no contrato, o nome do contratado/a que está no contrato, o CNPJ do contratante e o CNPJ do contratado {text}")
+response = llm.structured_predict(JsonResponse, prompt_tmpl, text=documents[0].text[:2000])
+print(response)
+
+query_engine = index.as_query_engine(response_mode="tree_summarize")
+response = query_engine.query("O que diz a cláusula 1 do contrato?")
 print(response)

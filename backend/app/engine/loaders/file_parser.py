@@ -3,6 +3,10 @@ from llama_parse import LlamaParse
 import logging
 from pydantic import BaseModel, field_validator
 
+from dotenv import load_dotenv
+
+load_dotenv()
+
 logger = logging.getLogger(__name__)
 
 class FileLoaderParserConfig(BaseModel):
@@ -21,7 +25,8 @@ def llama_parse_parser():
             "LLAMA_CLOUD_API_KEY environment variable is not set. "
             "Please set it in .env file or in your shell environment then run again!"
         )
-    parser = LlamaParse(result_type="markdown", language="pt")
+    parser = LlamaParse(result_type="text", language="pt")
+    print("Llama parser initialized")
     return parser
 
 def get_file_documents(contract_id: str, config: FileLoaderParserConfig):
@@ -30,10 +35,12 @@ def get_file_documents(contract_id: str, config: FileLoaderParserConfig):
     try:
         reader = SimpleDirectoryReader(input_files=[f"{config.data_dir}/{contract_id}.pdf"])
         logger.info(f"Loading file documents from {config.data_dir}/{contract_id}.pdf")
+        
         if config.use_llama_parser:
             logger.info("Using LLAMA parser to parse the documents")
             parser = llama_parse_parser()
             reader.file_extractor = {".pdf": parser}
+        print("Loading data")
         return reader.load_data()
     except ValueError as e:
 

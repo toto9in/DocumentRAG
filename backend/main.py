@@ -5,7 +5,7 @@ load_dotenv()
 from typing import Annotated
 from fastapi import FastAPI, Path, UploadFile
 from os import path, mkdir
-from app.engine.loaders import get_file_document
+from app.engine.loaders import get_basic_info, get_file_document
 import uuid
 from app.settings import init_settings
 
@@ -28,6 +28,10 @@ def query_index():
 @app.get("/document/{document_id}")
 def get_document(document_id: Annotated[str, Path(title="The ID of the document to get")]):
     return get_file_document(document_id)
+
+@app.get("/document/{document_id}/basic_info")
+def get_info(document_id: Annotated[str, Path(title="The ID of the document to get")]):
+    return get_basic_info(document_id)
     
 ## endpoint to save document in contracts folder, change status return later and return object with id
 @app.post("/upload")
@@ -37,6 +41,8 @@ async def upload_document(file: UploadFile):
         file.filename = f"{contract_id}.pdf"
         with open(f"contracts/{file.filename}", "wb+") as f:
             f.write(file.file.read())
+            ## TODO salvar o pdf em base64 em algum banco de dados tambem
+            
         return {"filename": file.filename, "id": contract_id }
     except Exception as e:
         return {"error": str(e)}
