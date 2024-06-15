@@ -4,6 +4,7 @@ import logging
 from pydantic import BaseModel, field_validator
 
 from dotenv import load_dotenv
+import yaml
 
 load_dotenv()
 
@@ -18,6 +19,11 @@ class FileLoaderParserConfig(BaseModel):
         if not os.path.isdir(dir_value):
             raise ValueError(f"Directory '{dir_value}' does not exist")
         return dir_value
+    
+def load_config_file_parser():
+    with open("config/file-parser.yaml") as f:
+        config = yaml.safe_load(f)
+    return config
 
 def llama_parse_parser():
     if os.getenv("LLAMA_CLOUD_API_KEY") is None:
@@ -58,3 +64,4 @@ def get_file_documents(contract_id: str, config: FileLoaderParserConfig):
         else:
             # Raise the error if it is not the case of empty data dir
             raise e
+    

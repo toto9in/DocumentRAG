@@ -8,7 +8,7 @@ def init_settings():
         pass
         init_openai()
     elif model_provider == "ollama":
-        ## init_ollama()
+        init_ollama()
         pass
     elif model_provider == "anthropic":
         pass
@@ -17,7 +17,7 @@ def init_settings():
     else:
         raise ValueError(f"Invalid model provider: {model_provider}")
     Settings.chunk_size = 200
-    Settings.chunk_overlap = 20
+    Settings.chunk_overlap = 50
 
 
 def init_ollama():
