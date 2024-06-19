@@ -8,10 +8,10 @@ class SimpleIndex:
     def __init__(self): 
         self.splitter = SentenceSplitter(
             chunk_size=1024,
-            hunk_overlap=20,
+            chunk_overlap=20,
         )
 
-    def generate_index(self, documents: List[Document], table_name: str):
+    def generate_index(self, documents: List[Document]) -> VectorStoreIndex:
         nodes = self.splitter.get_nodes_from_documents(documents)
         ## definir aq o storage_context para usar o PGVectorStore
             # vector_store = PGVectorStore.from_params(

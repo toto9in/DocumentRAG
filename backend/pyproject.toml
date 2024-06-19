@@ -21,6 +21,8 @@ ipykernel = "^6.29.4"
 llama-index-embeddings-openai = "^0.1.10"
 llama-index = "^0.10.43"
 pypdf = "^4.2.0"
+sqlalchemy = "^2.0.30"
+psycopg2 = "^2.9.9"
 
 
 [build-system]

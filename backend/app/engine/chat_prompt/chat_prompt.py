@@ -10,7 +10,7 @@ from app.engine.chat_prompt.pydantic_prompt_models import BasicInfo, MonetaryVal
 class ChatPrompt:
     def __init__(self, documents): 
         self.splitter = SentenceSplitter(
-            chunk_size=1024,
+            chunk_size=512,
             chunk_overlap=50,
         )
         self.documents = documents

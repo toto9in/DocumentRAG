@@ -5,14 +5,14 @@ from pydantic import BaseModel, Field
 class BasicInfo(BaseModel):
         """Data model for basic  extracted information."""
 
-        nome_contratante: str = Field(
+        contractor: str = Field(
             description="Nome do contrante", default='0'
         )
-        cnpj_contratante: str = Field(
+        contractor_cnpj: str = Field(
             description="CNPJ do contratante", default='0'
         )
-        nome_contratado: str = Field(description="Nome do contratado/a", default='0')
-        cnpj_contratado: str = Field(description="CNPJ do contratado/a", default='0')
+        hired: str = Field(description="Nome do contratado/a", default='0')
+        hired_cnpj: str = Field(description="CNPJ do contratado/a", default='0')
 
 
 class MonetaryValuesAndContext(BaseModel):
@@ -22,4 +22,10 @@ class MonetaryValuesAndContext(BaseModel):
         )
         contexto: str = Field(
                 description="Contexto bem resumido da onde foi encontrado tal valor, caso nao encontre algo relacionado com R$, responda 'nada'"
+        )
+
+class ContractValue(BaseModel):
+        """Data model for extracting contract value"""
+        contract_value: str = Field(
+                description="Valor total do contrato, caso nao ache prencha com '0'"
         )
