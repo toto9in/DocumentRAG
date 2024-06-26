@@ -23,6 +23,7 @@ llama-index = "^0.10.43"
 pypdf = "^4.2.0"
 sqlalchemy = "^2.0.30"
 psycopg2 = "^2.9.9"
+pdf2image = "^1.17.0"
 
 
 [build-system]
