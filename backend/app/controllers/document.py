@@ -7,10 +7,11 @@ from app.engine.indexers.simple_index import SimpleIndex
 from app.engine.chat_prompt.chat_prompt import ChatPrompt
 from app.engine.chat_prompt.pydantic_prompt_models import ContractValue
 from app.engine.loaders.file_parser import FileLoaderParserConfig, get_file_documents, load_config_file_parser
-from app.repository.document_repository import create_database_document
+from app.repository.document_repository import create_database_document, get_database_document
 from database.database import SessionLocal
 from database import models, schemas
 from llama_index.core.composability import QASummaryQueryEngineBuilder
+from app.utils.regex import extract_value
 
 document_router = APIRouter()
 
@@ -38,6 +39,12 @@ def get_document(document_id: Annotated[str, Path(title="The ID of the document 
 def get_info(document_id: Annotated[str, Path(title="The ID of the document to get")], db : Session = Depends(get_db)):
     ##buscar no banco de dados se tem ja tem algum registro desse documento e dar return
     ## if (....)
+    retrivied_basic_info = get_database_document(db, document_id)
+
+    if retrivied_basic_info:
+        return retrivied_basic_info
+
+
     config = load_config_file_parser()
     documents = get_file_documents(document_id, FileLoaderParserConfig(**config['file']))
     index = SimpleIndex().generate_index(documents)
@@ -47,16 +54,23 @@ def get_info(document_id: Annotated[str, Path(title="The ID of the document to g
 
     valor_contrato_texto = query_engine.query("Me diga qual o valor total do contrato")
     base_date = query_engine.query("Me diga a data-base do valor do contrado?")
-    print(valor_contrato_texto)
-    print(base_date)
+    prazo_contrato = query_engine.query("Qual o prazo do contrado?")
 
 
-    qa_query_engine_builder = QASummaryQueryEngineBuilder()
-    qa_query_engine = qa_query_engine_builder.build_from_documents(documents)
+    # print(valor_contrato_texto.response)
+    # print(extract_value(valor_contrato_texto.response)) ## REGEX SO FUNCONA PARA R$ 5000,00 OU R$XXXX,XX para outros textos nao
+    print(prazo_contrato)
 
-    summary = qa_query_engine.query("Me de um summario do contrato e de seus principais pontos")
 
-    print(summary)
+    # qa_query_engine_builder = QASummaryQueryEngineBuilder()
+    # qa_query_engine = qa_query_engine_builder.build_from_documents(documents)
+
+    # summary = qa_query_engine.query("Me de um summario do contrato e de seus principais pontos")
+
+    ## todo, tentar extrair da RESPOSTA DO INDEX, joga ela num prompt para sair em um objeto estrutura
+    ## 
+
+    # print(summary)
 
 
     chat_prompt = ChatPrompt(documents=documents)
@@ -67,17 +81,16 @@ def get_info(document_id: Annotated[str, Path(title="The ID of the document to g
         contractor=cnpj_and_names.contractor, 
         contractorCNPJ=cnpj_and_names.contractor_cnpj, 
         hired=cnpj_and_names.hired, 
-        hiredCNPJ=cnpj_and_names.hired_cnpj
+        hiredCNPJ=cnpj_and_names.hired_cnpj,
+        contractValue=extract_value(valor_contrato_texto.response),
+        baseDate=base_date.response
     )   
 
     create_database_document(db, db_document)
 
 
-    ## salvar isso de cima no banco de dados
-    
-    print(type(cnpj_and_names))
-    # response2 = chat_prompt.get_monatary_values_with_context()
-    return cnpj_and_names
+
+    return db_document
 
 
 # endpoint to save document in contracts folder, change status return later and return object with id

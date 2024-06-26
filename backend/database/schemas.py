@@ -7,6 +7,8 @@ class DataBaseDocumentCreate(BaseModel):
     contractorCNPJ: str
     hired: str
     hiredCNPJ: str
+    contractValue: str
+    baseDate: str
 
 
 class DataBaseDocument(BaseModel):
@@ -15,6 +17,8 @@ class DataBaseDocument(BaseModel):
     contractorCNPJ: str
     hired: str
     hiredCNPJ: str
+    contractValue: str
+    baseDate: str
 
     class Config:
         orm_mode = True
