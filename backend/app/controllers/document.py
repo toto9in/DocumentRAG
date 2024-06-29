@@ -1,6 +1,7 @@
 from typing import Annotated
 import uuid
 from fastapi import APIRouter, Depends, Path, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.engine.loaders import get_file_document
 from app.engine.indexers.simple_index import SimpleIndex
@@ -141,6 +142,16 @@ def search_documents(query: str, db: Session = Depends(get_db)):
         print(i)
 
     return response.source_nodes
+
+
+@document_router.get("/{document_id}/download")
+def download_document(
+    document_id: Annotated[str, Path(title="The ID of the document to download")],
+    db: Session = Depends(get_db),
+):
+    db_document = get_database_document(db, document_id)
+
+    return FileResponse(f"contracts/{db_document.name}")
 
 
 # endpoint to save document in contracts folder, change status return later and return object with id
