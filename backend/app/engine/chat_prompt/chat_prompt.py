@@ -1,22 +1,22 @@
-from typing import List
 from llama_index.core.node_parser import SentenceSplitter
 from llama_index.core import ChatPromptTemplate
 from llama_index.core.llms import ChatMessage
 from llama_index.program.openai import OpenAIPydanticProgram
 from llama_index.core.settings import Settings
-from app.engine.chat_prompt.pydantic_prompt_models import BasicInfo, MonetaryValuesAndContext
+from app.engine.chat_prompt.pydantic_prompt_models import (
+    BasicInfo,
+    MonetaryValuesAndContext,
+)
 
 
 class ChatPrompt:
-    def __init__(self, documents): 
+    def __init__(self, documents):
         self.splitter = SentenceSplitter(
             chunk_size=512,
             chunk_overlap=50,
         )
         self.documents = documents
         self.nodes = self.splitter.get_nodes_from_documents(documents)
-    
-    
 
     def get_cpnjs_and_names(self):
         prompt = ChatPromptTemplate(
@@ -32,8 +32,11 @@ class ChatPrompt:
                 ChatMessage(
                     role="user",
                     content=(
-                        "Passagem do contrato: \n" "------\n" "{contract_info}\n" "------"
-                ),
+                        "Passagem do contrato: \n"
+                        "------\n"
+                        "{contract_info}\n"
+                        "------"
+                    ),
                 ),
             ]
         )
@@ -48,7 +51,7 @@ class ChatPrompt:
         ## ver se isso vai sair formatado no responde do thunderclient
         top_output = program(contract_info=self.nodes[0].text)
         return top_output
-    
+
     def get_monatary_values_with_context(self):
         prompt = ChatPromptTemplate(
             message_templates=[
@@ -57,13 +60,15 @@ class ChatPrompt:
                     content=(
                         "Você é um assistente especialista em extrair informacoes em R$ de um contrato, nao invente informacoes\n"
                         "LEMBRE-SE de retornar os dados extraidos apenas da passagem do contrato oferecida."
-
-                    )
+                    ),
                 ),
                 ChatMessage(
                     role="user",
                     content=(
-                        "Passagem do contrato: \n" "------\n" "{contract_info}\n" "------"
+                        "Passagem do contrato: \n"
+                        "------\n"
+                        "{contract_info}\n"
+                        "------"
                     ),
                 ),
             ]
@@ -73,18 +78,13 @@ class ChatPrompt:
             output_cls=MonetaryValuesAndContext,
             llm=Settings.llm,
             prompt=prompt,
-            verbose=True
+            verbose=True,
         )
 
         values = []
-    
+
         for node in self.nodes:
             output = program(contract_info=node.text)
             values.append(output)
-    
-        
+
         return values
-
-
-
-

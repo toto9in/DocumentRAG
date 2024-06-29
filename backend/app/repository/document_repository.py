@@ -1,31 +1,99 @@
 from sqlalchemy.orm import Session
 from database import models, schemas
-from sqlalchemy import select
+from sqlalchemy import and_, cast, String, select
 
 
-def get_db_documents(db: Session, skip: int = 0, limit: int = 100):
-    documents = db.execute(
-        select(
-            models.DataBaseDocument.id,
-            models.DataBaseDocument.name,
-            models.DataBaseDocument.thumbnail
-        ).offset(skip).limit(limit)
-    ).all()
-    return [{'id': doc.id, 'name': doc.name, 'thumbnail': doc.thumbnail} for doc in documents]
+def get_db_documents(
+    db: Session,
+    skip: int = 0,
+    limit: int = 100,
+    name: str = None,
+    contractValue: str = None,
+    status: str = None,
+    baseDate: str = None,
+):
+    query = select(
+        models.DataBaseDocument.id,
+        models.DataBaseDocument.name,
+        models.DataBaseDocument.contractValue,
+        models.DataBaseDocument.status,
+        models.DataBaseDocument.baseDate,
+    )
+
+    filters = []
+    if name is not None:
+        filters.append(models.DataBaseDocument.name.ilike(f"%{name}%"))
+    if contractValue is not None:
+        filters.append(
+            cast(models.DataBaseDocument.contractValue, String).ilike(
+                f"%{contractValue}%"
+            )
+        )
+    if status is not None:
+        filters.append(models.DataBaseDocument.status.ilike(f"%{status}%"))
+    if baseDate is not None:
+        filters.append(
+            cast(models.DataBaseDocument.baseDate, String).ilike(f"%{baseDate}%")
+        )
+
+    if filters:
+        query = query.where(and_(*filters))
+
+    documents = db.execute(query.offset(skip).limit(limit)).all()
+
+    return [
+        {
+            "id": doc.id,
+            "name": doc.name,
+            "status": doc.status,
+            "baseDate": doc.baseDate,
+            "contractValue": doc.contractValue,
+        }
+        for doc in documents
+    ]
 
 
 def get_database_document(db: Session, document_id: str):
-    return db.query(models.DataBaseDocument).filter(models.DataBaseDocument.id == document_id).first()
+    return (
+        db.query(models.DataBaseDocument)
+        .filter(models.DataBaseDocument.id == document_id)
+        .first()
+    )
 
-def create_db_document_draft(db: Session, document: schemas.DataBaseDocumentDraft):
-    db_document = models.DataBaseDocument(id=document.id, name=document.name, pdf=document.pdf, knowledge_base_id=document.knowledge_base_id, thumbnail=document.thumbnail)
+
+def create_db_document(db: Session, document: schemas.DataBaseDocumentCreate):
+    db_document = models.DataBaseDocument(
+        id=document.id,
+        name=document.name,
+        pdf=document.pdf,
+        knowledge_base_id=document.knowledge_base_id,
+        thumbnail=document.thumbnail,
+        contractor=document.contractor,
+        contractorCNPJ=document.contractorCNPJ,
+        hired=document.hired,
+        hiredCNPJ=document.hiredCNPJ,
+        contractValue=document.contractValue,
+        baseDate=document.baseDate,
+        warranty=document.warranty,
+        types_of_insurances=document.types_of_insurances,
+        contractTerm=document.contractTerm,
+        index_id=document.index_id,
+        status=document.status,
+    )
     db.add(db_document)
     db.commit()
     db.refresh(db_document)
     return db_document
 
-def update_basic_info_database_document(db: Session, document: schemas.DataBaseDocumentUpdate):
-    db_document = db.query(models.DataBaseDocument).filter(models.DataBaseDocument.id == document.id).first()
+
+def update_basic_info_database_document(
+    db: Session, document: schemas.DataBaseDocumentUpdate
+):
+    db_document = (
+        db.query(models.DataBaseDocument)
+        .filter(models.DataBaseDocument.id == document.id)
+        .first()
+    )
     if db_document:
         db_document.contractor = document.contractor
         db_document.contractorCNPJ = document.contractorCNPJ
