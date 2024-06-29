@@ -35,12 +35,12 @@ def llama_parse_parser():
     print("Llama parser initialized")
     return parser
 
-def get_file_documents(contract_id: str, config: FileLoaderParserConfig):
+def get_file_documents(contract_name: str, config: FileLoaderParserConfig):
     from llama_index.core.readers import SimpleDirectoryReader
 
     try:
-        reader = SimpleDirectoryReader(input_files=[f"{config.data_dir}/{contract_id}.pdf"])
-        logger.info(f"Loading file documents from {config.data_dir}/{contract_id}.pdf")
+        reader = SimpleDirectoryReader(input_files=[f"{config.data_dir}/{contract_name}"])
+        logger.info(f"Loading file documents from {config.data_dir}/{contract_name}")
         
         if config.use_llama_parser:
             logger.info("Using LLAMA parser to parse the documents")

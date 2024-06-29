@@ -2,7 +2,7 @@ import uuid
 from pydantic import BaseModel
 
 
-class DataBaseDocumentCreate(BaseModel):
+class DataBaseDocumentUpdate(BaseModel):
     id: str
     contractor: str
     contractorCNPJ: str
@@ -10,6 +10,9 @@ class DataBaseDocumentCreate(BaseModel):
     hiredCNPJ: str
     contractValue: str | None
     baseDate: str
+    warranty: str
+    types_of_insurances: str
+    contractTerm: str
 
 class DataBaseDocumentDraft(BaseModel):
     id : uuid.UUID
@@ -17,6 +20,7 @@ class DataBaseDocumentDraft(BaseModel):
     knowledge_base_id: int
     pdf: str
     thumbnail: str
+    
 
 
 class DataBaseDocument(BaseModel):
@@ -33,6 +37,5 @@ class DataBaseDocument(BaseModel):
     knowledge_base_id: int
     class Config:
         orm_mode = True
-
 
 
