@@ -16,6 +16,7 @@ from app.repository.document_repository import (
     get_database_document,
     create_db_document,
     get_db_documents,
+    delete_database_document,
 )
 from app.repository.knowledge_base_repository import get_kb_by_id, update_kb_kb_index_id
 from llama_index.vector_stores.chroma import ChromaVectorStore
@@ -176,16 +177,18 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         if kb.contracts == []:
             # Se kb.contracts está vazio, crie um novo kb_index
             # chroma_collection = chroma_client.create_collection(kb.name) CRIAR COLECAO NUM OUTRO CRUD
-            chroma_collection = chroma_client.get_collection(kb.name)
+            chroma_collection = chroma_client.get_or_create_collection(kb.name)
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
             storage_context = StorageContext.from_defaults(vector_store=vector_store)
             print("criando pela primeira vez")
-            _kb_index = VectorStoreIndex.from_documents(
-                documents, storage_context=storage_context
-            )
+            # _kb_index = VectorStoreIndex.from_documents(
+            #     documents, storage_context=storage_context
+            # )
+            VectorStoreIndex(storage_context=storage_context, nodes=documents)
+
         else:
             # Se kb.contracts não está vazio, pegue o kb_index existente e adicione o novo documento
-            chroma_collection = chroma_client.get_collection(kb.name)
+            chroma_collection = chroma_client.get_or_create_collection(kb.name)
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
             print("adicionando docs")
             VectorStoreIndex.from_vector_store(vector_store=vector_store).insert_nodes(
@@ -200,10 +203,6 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         images[0].save(thumbnail_io, format="PNG")
         thumbnail_base64 = base64.b64encode(thumbnail_io.getvalue()).decode("utf-8")
 
-        config = load_config_file_parser()
-        documents = get_file_documents(
-            file.filename, FileLoaderParserConfig(**config["file"])
-        )
         ## index for one document
         index = SimpleIndex().generate_index(documents)  ## ESSE INDEX AQ PRECISA
         query_engine = index.as_query_engine(response_mode="compact")
@@ -239,12 +238,48 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             types_of_insurances=tipo_contrato.response,
             pdf=file_content_base64,
             thumbnail=thumbnail_base64,
-            index_id=index.index_id,  ## alterar aq dps
+            index_id=index.index_id,
             status="PENDING",
         )
 
-        create_db_document(db, db_document)
+        ## isso aq eh para salvar no banco os doc_ids gerado no parsing para termos controle dps
+        ## de quais nodes foram usados para criar e aumentar o kb_index e o index do proprio documento
+        ## ajuda na hora de deletar um contrato, a deletar os nodes relacionados a ele do kb_index
+        create_db_document(
+            db,
+            db_document,
+            [document.doc_id for document in documents if document.doc_id],
+        )
 
         return {"status": "success"}
     except Exception as e:
         return {"error": str(e)}
+
+
+@document_router.delete("/{document_id}")
+def delete_document(
+    document_id: Annotated[str, Path(title="The ID of the document to delete")],
+    db: Session = Depends(get_db),
+):
+    chroma_client = chromadb.HttpClient()
+
+    ## primeiro pegar no banco esse db para pegar o kb_id dele e deletar esse documento do kb_index
+    db_document = get_database_document(db, document_id)
+
+    nodes_ids = []
+
+    for doc_index in db_document.docs_index:
+        nodes_ids.append(doc_index.id)
+
+    print(nodes_ids)
+
+    kb = get_kb_by_id(db, db_document.knowledge_base_id)
+    chroma_collection = chroma_client.get_collection(kb.name)
+    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+    kb_index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+
+    kb_index.delete_nodes(nodes_ids)
+
+    delete_database_document(db, document_id)
+
+    return {"status": "success"}

@@ -1,18 +1,14 @@
 from sqlalchemy import (
-    Boolean,
     Column,
     ForeignKey,
-    ForeignKeyConstraint,
     Integer,
     String,
-    Double,
     DateTime,
     func,
-    LargeBinary,
 )
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-import base64
+
 from .database import Base
 
 
@@ -54,6 +50,15 @@ class DataBaseDocument(Base):
     status = Column(String, nullable=True, index=True)
     knowledge_base_id = Column(Integer, ForeignKey("knowledge_base.id"))
     knowledge_base = relationship("KnowledgeBase", back_populates="contracts")
+    docs_index = relationship("DocsIndexIds", back_populates="document")
+
+
+class DocsIndexIds(Base):
+    __tablename__ = "docs_index_ids"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, index=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("document.id"))
+    document = relationship("DataBaseDocument", back_populates="docs_index")
 
 
 # class Company(Base):

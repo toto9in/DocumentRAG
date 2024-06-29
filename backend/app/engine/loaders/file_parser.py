@@ -1,4 +1,6 @@
 import os
+from typing import List
+from llama_index_client import Document
 from llama_parse import LlamaParse
 import logging
 from pydantic import BaseModel, field_validator
@@ -10,6 +12,7 @@ load_dotenv()
 
 logger = logging.getLogger(__name__)
 
+
 class FileLoaderParserConfig(BaseModel):
     data_dir: str = "contracts"
     use_llama_parser: bool = False
@@ -19,11 +22,13 @@ class FileLoaderParserConfig(BaseModel):
         if not os.path.isdir(dir_value):
             raise ValueError(f"Directory '{dir_value}' does not exist")
         return dir_value
-    
+
+
 def load_config_file_parser():
     with open("config/file-parser.yaml") as f:
         config = yaml.safe_load(f)
     return config
+
 
 def llama_parse_parser():
     if os.getenv("LLAMA_CLOUD_API_KEY") is None:
@@ -35,13 +40,18 @@ def llama_parse_parser():
     print("Llama parser initialized")
     return parser
 
-def get_file_documents(contract_name: str, config: FileLoaderParserConfig):
+
+def get_file_documents(
+    contract_name: str, config: FileLoaderParserConfig
+) -> List[Document] | list:
     from llama_index.core.readers import SimpleDirectoryReader
 
     try:
-        reader = SimpleDirectoryReader(input_files=[f"{config.data_dir}/{contract_name}"])
+        reader = SimpleDirectoryReader(
+            input_files=[f"{config.data_dir}/{contract_name}"]
+        )
         logger.info(f"Loading file documents from {config.data_dir}/{contract_name}")
-        
+
         if config.use_llama_parser:
             logger.info("Using LLAMA parser to parse the documents")
             parser = llama_parse_parser()
@@ -49,7 +59,6 @@ def get_file_documents(contract_name: str, config: FileLoaderParserConfig):
         print("Loading data")
         return reader.load_data()
     except ValueError as e:
-
         import sys, traceback
 
         # Catch the error if the data dir is empty
@@ -64,4 +73,3 @@ def get_file_documents(contract_name: str, config: FileLoaderParserConfig):
         else:
             # Raise the error if it is not the case of empty data dir
             raise e
-    

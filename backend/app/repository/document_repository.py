@@ -1,3 +1,4 @@
+from typing import List
 from sqlalchemy.orm import Session
 from database import models, schemas
 from sqlalchemy import and_, cast, String, select
@@ -61,7 +62,23 @@ def get_database_document(db: Session, document_id: str):
     )
 
 
-def create_db_document(db: Session, document: schemas.DataBaseDocumentCreate):
+def delete_database_document(db: Session, document_id: str):
+    db_document = (
+        db.query(models.DataBaseDocument)
+        .filter(models.DataBaseDocument.id == document_id)
+        .first()
+    )
+    if db_document:
+        db.delete(db_document)
+        db.commit()
+    return db_document
+
+
+def create_db_document(
+    db: Session,
+    document: schemas.DataBaseDocumentCreate,
+    index_ids: List[String],
+):
     db_document = models.DataBaseDocument(
         id=document.id,
         name=document.name,
@@ -80,7 +97,14 @@ def create_db_document(db: Session, document: schemas.DataBaseDocumentCreate):
         index_id=document.index_id,
         status=document.status,
     )
+
+    db_index_ids = [
+        models.DocsIndexIds(id=index_id, document_id=document.id)
+        for index_id in index_ids
+    ]
+
     db.add(db_document)
+    db.add_all(db_index_ids)
     db.commit()
     db.refresh(db_document)
     return db_document
