@@ -8,6 +8,7 @@ from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 import yaml
 
+
 load_dotenv()
 
 logger = logging.getLogger(__name__)

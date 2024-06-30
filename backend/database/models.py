@@ -44,7 +44,7 @@ class DataBaseDocument(Base):
         DateTime(timezone=True), server_default=func.now(), nullable=True
     )
     updatedAt = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
-    index_id = Column(String, nullable=True)
+    index_id = Column(UUID(as_uuid=True), nullable=True)
     pdf = Column(String, nullable=True)
     thumbnail = Column(String, nullable=True)
     status = Column(String, nullable=True, index=True)

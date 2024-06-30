@@ -30,7 +30,7 @@ class DataBaseDocumentCreate(BaseModel):
     warranty: str
     types_of_insurances: str
     contractTerm: str
-    index_id: str
+    index_id: uuid.UUID
     status: str
 
 

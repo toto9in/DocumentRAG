@@ -1,6 +1,6 @@
 from typing import Annotated
 import uuid
-from fastapi import APIRouter, Depends, Path, UploadFile
+from fastapi import APIRouter, Depends, Path, UploadFile, WebSocket
 from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 from app.engine.loaders import get_file_document
@@ -66,6 +66,7 @@ def get_document(
     return get_file_document(document_id)
 
 
+## basic info nao sera usado mais
 @document_router.get("/document/{document_id}/basic_info")
 def get_info(
     document_id: Annotated[str, Path(title="The ID of the document to get")],
@@ -145,6 +146,28 @@ def search_documents(query: str, db: Session = Depends(get_db)):
     return response.source_nodes
 
 
+## TODO implementar chat engine para um documento especifico
+@document_router.websocket("/{document_id}/chat")
+async def websocket_endpoint(
+    websocket: WebSocket, document_id: str, db: Session = Depends(get_db)
+):
+    await websocket.accept()
+    while True:
+        data = await websocket.receive_text()
+        chroma_client = chromadb.HttpClient()
+        db_document = get_database_document(db, document_id)
+        chroma_collection = chroma_client.get_collection(str(db_document.index_id))
+        vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+        index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+
+        query_engine = index.as_query_engine()
+        print(query_engine.query(data))
+        chat_engine = index.as_chat_engine(chat_mode="best")
+        streaming_response = chat_engine.stream_chat(data)
+        for token in streaming_response.response_gen:
+            await websocket.send_text(token)
+
+
 @document_router.get("/{document_id}/download")
 def download_document(
     document_id: Annotated[str, Path(title="The ID of the document to download")],
@@ -204,7 +227,13 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         thumbnail_base64 = base64.b64encode(thumbnail_io.getvalue()).decode("utf-8")
 
         ## index for one document
-        index = SimpleIndex().generate_index(documents)  ## ESSE INDEX AQ PRECISA
+
+        index, index_id = SimpleIndex().generate_index(
+            documents, chroma_client
+        )  ## ESSE INDEX AQ PRECISA
+        ## ISSO aq eh para na tela de detalhes ajudar no chat bot
+        chroma_collection = chroma_client.get_or_create_collection(index.index_id)
+        index.storage_context
         query_engine = index.as_query_engine(response_mode="compact")
         valor_contrato_texto = query_engine.query(
             "Me diga qual o valor total do contrato"
@@ -219,9 +248,6 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         )
         chat_prompt = ChatPrompt(documents=documents)
         cnpj_and_names = chat_prompt.get_cpnjs_and_names()
-
-        ## ISSO aq eh para na tela de detalhes ajudar no chat bot
-        chroma_collection = chroma_client.create_collection(index.index_id)
 
         db_document = schemas.DataBaseDocumentCreate(
             id=uuid.uuid1(),
@@ -238,7 +264,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             types_of_insurances=tipo_contrato.response,
             pdf=file_content_base64,
             thumbnail=thumbnail_base64,
-            index_id=index.index_id,
+            index_id=index_id,
             status="PENDING",
         )
 
