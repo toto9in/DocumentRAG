@@ -2,6 +2,7 @@ from typing import Annotated
 import uuid
 from fastapi import APIRouter, Depends, Path, UploadFile, WebSocket
 from fastapi.responses import FileResponse
+from llama_index.core.node_parser import SentenceSplitter
 from sqlalchemy.orm import Session
 from app.engine.loaders import get_file_document
 from app.engine.indexers.simple_index import SimpleIndex
@@ -29,6 +30,11 @@ import base64
 import io
 import chromadb
 from pdf2image import convert_from_bytes
+from llama_index.postprocessor.flag_embedding_reranker import (
+    FlagEmbeddingReranker,
+)
+from llama_index.embeddings.openai import OpenAIEmbedding
+
 
 document_router = APIRouter()
 
@@ -160,11 +166,13 @@ async def websocket_endpoint(
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
         index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
 
-        query_engine = index.as_query_engine()
-        print(query_engine.query(data))
-        chat_engine = index.as_chat_engine(chat_mode="best")
+        chat_engine = index.as_chat_engine(
+            chat_mode="openai",
+            similarity_top_k=10,
+        )
         streaming_response = chat_engine.stream_chat(data)
         for token in streaming_response.response_gen:
+            print(token)
             await websocket.send_text(token)
 
 
@@ -195,7 +203,17 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             file.filename, FileLoaderParserConfig(**config["file"])
         )
 
-        print(kb.contracts)
+        splitter = SentenceSplitter(
+            chunk_size=2048,
+            chunk_overlap=100,
+        )
+
+        reranker = FlagEmbeddingReranker(
+            top_n=5,
+            model="BAAI/bge-reranker-large",
+        )
+
+        nodes = splitter.get_nodes_from_documents(documents)
 
         if kb.contracts == []:
             # Se kb.contracts está vazio, crie um novo kb_index
@@ -207,7 +225,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             # _kb_index = VectorStoreIndex.from_documents(
             #     documents, storage_context=storage_context
             # )
-            VectorStoreIndex(storage_context=storage_context, nodes=documents)
+            VectorStoreIndex(storage_context=storage_context, nodes=nodes)
 
         else:
             # Se kb.contracts não está vazio, pegue o kb_index existente e adicione o novo documento
@@ -215,7 +233,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
             print("adicionando docs")
             VectorStoreIndex.from_vector_store(vector_store=vector_store).insert_nodes(
-                documents
+                nodes
             )
 
         update_kb_kb_index_id(db, kb.id, kb.name)
@@ -227,14 +245,22 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         thumbnail_base64 = base64.b64encode(thumbnail_io.getvalue()).decode("utf-8")
 
         ## index for one document
+        # index, index_id = SimpleIndex().generate_index(documents, chroma_client)
 
-        index, index_id = SimpleIndex().generate_index(
-            documents, chroma_client
-        )  ## ESSE INDEX AQ PRECISA
-        ## ISSO aq eh para na tela de detalhes ajudar no chat bot
-        chroma_collection = chroma_client.get_or_create_collection(index.index_id)
-        index.storage_context
-        query_engine = index.as_query_engine(response_mode="compact")
+        simple_index_collection_id = uuid.uuid1()
+        chroma_collection = chroma_client.get_or_create_collection(
+            simple_index_collection_id
+        )
+        vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+        storage_context = StorageContext.from_defaults(vector_store=vector_store)
+        index = VectorStoreIndex(
+            storage_context=storage_context,
+            nodes=nodes,
+        )
+
+        query_engine = index.as_query_engine(
+            similarity_top_k=8, node_postprocessors=[reranker]
+        )
         valor_contrato_texto = query_engine.query(
             "Me diga qual o valor total do contrato"
         )
@@ -264,7 +290,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             types_of_insurances=tipo_contrato.response,
             pdf=file_content_base64,
             thumbnail=thumbnail_base64,
-            index_id=index_id,
+            index_id=simple_index_collection_id,
             status="PENDING",
         )
 
@@ -274,7 +300,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         create_db_document(
             db,
             db_document,
-            [document.doc_id for document in documents if document.doc_id],
+            [node.node_id for node in nodes if node.node_id],
         )
 
         return {"status": "success"}

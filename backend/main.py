@@ -6,6 +6,7 @@ from database import models
 import uvicorn
 from dotenv import load_dotenv
 
+
 load_dotenv()
 
 
