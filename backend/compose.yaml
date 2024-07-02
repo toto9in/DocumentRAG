@@ -63,12 +63,13 @@ services:
       - LLAMA_CLOUD_API_KEY=llx-yanhODYjC09DwQRdF7i8CA97hETA1Gwh3KZM0pwi6vYpslDl
       - MODEL=llama3
       - MODEL_PROVIDER=openai
-      - OPENAI_API_KEY=sk-proj-LceStKe2gcp1R57Ii9BAT3BlbkFJCQIa9KWLlEehE0PhkcjU
+      - OPENAI_API_KEY=
   db:
     image: postgres
     restart: always
     volumes:
-      - ./sql:/docker-entrypoint-initdb.d
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      - db-data:/var/lib/postgresql/data
     user: postgres
     secrets:
       - db-password

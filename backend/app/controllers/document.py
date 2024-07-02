@@ -27,7 +27,6 @@ import base64
 import io
 import chromadb
 from pdf2image import convert_from_bytes
-import aiofiles
 
 
 document_router = APIRouter()
@@ -137,8 +136,8 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         chroma_client = chromadb.HttpClient(host="chromadb")
 
         file_content = await file.read()
-        async with aiofiles.open(f"contracts/{file.filename}", "wb+") as f:
-            await f.write(file_content)
+        with open(f"contracts/{file.filename}", "wb+") as f:
+                f.write(file_content)
 
         config = load_config_file_parser()
         documents = get_file_documents(
