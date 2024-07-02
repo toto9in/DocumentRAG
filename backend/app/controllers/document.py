@@ -27,6 +27,7 @@ import base64
 import io
 import chromadb
 from pdf2image import convert_from_bytes
+from pydantic import BaseModel, Field
 
 
 document_router = APIRouter()
@@ -73,6 +74,31 @@ def get_info(
 ):
     ##buscar no banco de dados se tem ja tem algum registro desse documento e dar return
     retrivied_basic_info = get_database_document(db, document_id)
+
+    class DataBaseDoContrato(BaseModel):
+        """Data model for DataBase"""
+        data_base_contrato: str = Field(description="data-base do contrato")
+
+
+
+
+    chroma_client = chromadb.HttpClient()
+    db_document = get_database_document(db, document_id)
+    chroma_collection = chroma_client.get_collection(str(db_document.index_id))
+    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+    index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+    query_engine = index.as_query_engine(response_mode="compact",  similarity_top_k=10)
+
+    ## por incrivel q pareca isso aq funfou, testar em casa // compact retorna algo mais resumido
+    response = query_engine.query("Me diga a data-base do valor do contrado se houver? Retorne em json caso ache, caso contrario coloque null")
+    prazo_contrato = query_engine.query(
+            "Qual o prazo/vigência do contrado? Ou seja, em quanto tempo objeto do contrato deverá ser executado? Retorne em json + o motivo resumido"
+    )
+    garantia_contrato = query_engine.query("Qual a garantia do contrato se houver? Retorne em json se encontrar valores + motivo")
+    print(response)
+    print(prazo_contrato)
+    print(garantia_contrato)
+
     return retrivied_basic_info
 
 
@@ -81,7 +107,7 @@ def get_info(
 def search_documents(query: str, db: Session = Depends(get_db)):
     kb = get_kb_by_id(db, 1)
 
-    chroma_client = chromadb.HttpClient(host="chromadb")
+    chroma_client = chromadb.HttpClient()
     chroma_collection = chroma_client.get_collection(kb.name)
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     kb_index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
@@ -101,7 +127,7 @@ async def websocket_endpoint(
     await websocket.accept()
     while True:
         data = await websocket.receive_text()
-        chroma_client = chromadb.HttpClient(host="chromadb")
+        chroma_client = chromadb.HttpClient()
         db_document = get_database_document(db, document_id)
         chroma_collection = chroma_client.get_collection(str(db_document.index_id))
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
@@ -133,7 +159,9 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
     try:
         kb = get_kb_by_id(db, 1)
 
-        chroma_client = chromadb.HttpClient(host="chromadb")
+        ## no docker tem que passar pro HttpClient(host="chromadb")
+        ## para uso local tire
+        chroma_client = chromadb.HttpClient()
 
         file_content = await file.read()
         with open(f"contracts/{file.filename}", "wb+") as f:
