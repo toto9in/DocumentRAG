@@ -1,0 +1,96 @@
+# # Comments are provided throughout this file to help you get started.
+# # If you need more help, visit the Docker Compose reference guide at
+# # https://docs.docker.com/go/compose-spec-reference/
+
+# # Here the instructions define your application as a service called "server".
+# # This service is built from the Dockerfile in the current directory.
+# # You can add other services your application may depend on here, such as a
+# # database or a cache. For examples, see the Awesome Compose repository:
+# # https://github.com/docker/awesome-compose
+# services:
+#   server:
+#     build:
+#       context: .
+#     ports:
+#       - 3333:3333
+
+# # The commented out section below is an example of how to define a PostgreSQL
+# # database that your application can use. `depends_on` tells Docker Compose to
+# # start the database before your application. The `db-data` volume persists the
+# # database data between container restarts. The `db-password` secret is used
+# # to set the database password. You must create `db/password.txt` and add
+# # a password of your choosing to it before running `docker compose up`.
+# #     depends_on:
+# #       db:
+# #         condition: service_healthy
+# #   db:
+# #     image: postgres
+# #     restart: always
+# #     user: postgres
+# #     secrets:
+# #       - db-password
+# #     volumes:
+# #       - db-data:/var/lib/postgresql/data
+# #     environment:
+# #       - POSTGRES_DB=example
+# #       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
+# #     expose:
+# #       - 5432
+# #     healthcheck:
+# #       test: [ "CMD", "pg_isready" ]
+# #       interval: 10s
+# #       timeout: 5s
+# #       retries: 5
+# # volumes:
+# #   db-data:
+# # secrets:
+# #   db-password:
+# #     file: db/password.txt
+
+version: "3.8"
+
+services:
+  server:
+    build:
+      context: .
+    ports:
+      - "3333:3333"
+    depends_on:
+      - db
+      - chromadb
+    environment:
+      - SQLALCHEMY_DATABASE_URL=postgresql://postgres:0908@db:5432/postgres
+      - LLAMA_CLOUD_API_KEY=llx-yanhODYjC09DwQRdF7i8CA97hETA1Gwh3KZM0pwi6vYpslDl
+      - MODEL=llama3
+      - MODEL_PROVIDER=openai
+      - OPENAI_API_KEY=sk-proj-LceStKe2gcp1R57Ii9BAT3BlbkFJCQIa9KWLlEehE0PhkcjU
+  db:
+    image: postgres
+    restart: always
+    volumes:
+      - ./sql:/docker-entrypoint-initdb.d
+    user: postgres
+    secrets:
+      - db-password
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+  chromadb:
+    image: chromadb/chroma # Certifique-se de usar a imagem correta
+    restart: always
+    ports:
+      - "8000:8000" # Ajuste a porta para 8000
+volumes:
+  db-data:
+secrets:
+  db-password:
+    file: db/password.txt
+  llama_cloud_api_key:
+    file: llama_cloud_api_key.txt
