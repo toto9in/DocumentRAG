@@ -110,7 +110,7 @@ def get_document_by_id(
 def search_documents(query: str, db: Session = Depends(get_db)):
     kb = get_kb_by_id(db, 1)
 
-    chroma_client = chromadb.HttpClient()
+    chroma_client = chromadb.HttpClient(host="chromadb")
     chroma_collection = chroma_client.get_collection(kb.name)
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     kb_index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
@@ -130,7 +130,7 @@ async def websocket_endpoint(
     await websocket.accept()
     while True:
         data = await websocket.receive_text()
-        chroma_client = chromadb.HttpClient()
+        chroma_client = chromadb.HttpClient(host="chromadb")
         db_document = get_database_document(db, document_id)
         chroma_collection = chroma_client.get_collection(str(db_document.index_id))
         vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
@@ -164,7 +164,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
 
         ## no docker tem que passar pro HttpClient(host="chromadb")
         ## para uso local tire
-        chroma_client = chromadb.HttpClient()
+        chroma_client = chromadb.HttpClient(host="chromadb")
 
         file_content = await file.read()
         with open(f"contracts/{file.filename}", "wb+") as f:
