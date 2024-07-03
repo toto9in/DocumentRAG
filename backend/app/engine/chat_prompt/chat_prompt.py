@@ -12,8 +12,8 @@ from app.engine.chat_prompt.pydantic_prompt_models import (
 class ChatPrompt:
     def __init__(self, documents):
         self.splitter = SentenceSplitter(
-            chunk_size=512,
-            chunk_overlap=50,
+            chunk_size=2048,
+            chunk_overlap=100,
         )
         self.documents = documents
         self.nodes = self.splitter.get_nodes_from_documents(documents)

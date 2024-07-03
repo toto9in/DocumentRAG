@@ -9,7 +9,7 @@ def get_db_documents(
     skip: int = 0,
     limit: int = 100,
     name: str = None,
-    contractValue: str = None,
+    contractValue: float = None,
     status: str = None,
     baseDate: str = None,
 ):
@@ -25,11 +25,7 @@ def get_db_documents(
     if name is not None:
         filters.append(models.DataBaseDocument.name.ilike(f"%{name}%"))
     if contractValue is not None:
-        filters.append(
-            cast(models.DataBaseDocument.contractValue, String).ilike(
-                f"%{contractValue}%"
-            )
-        )
+        filters.append(models.DataBaseDocument.contractValue == contractValue)
     if status is not None:
         filters.append(models.DataBaseDocument.status.ilike(f"%{status}%"))
     if baseDate is not None:

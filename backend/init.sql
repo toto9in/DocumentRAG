@@ -13,7 +13,7 @@ CREATE TABLE document (
     "contractorCNPJ" VARCHAR,
     "hired" VARCHAR,
     "hiredCNPJ" VARCHAR,
-    "contractValue" VARCHAR,
+    "contractValue" FLOAT,
     "baseDate" VARCHAR,
     "contractTerm" VARCHAR,
     "warranty" VARCHAR,

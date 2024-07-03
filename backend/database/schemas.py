@@ -8,7 +8,7 @@ class DataBaseDocumentUpdate(BaseModel):
     contractorCNPJ: str
     hired: str
     hiredCNPJ: str
-    contractValue: str | None
+    contractValue: float | None
     baseDate: str
     warranty: str
     types_of_insurances: str
@@ -25,7 +25,7 @@ class DataBaseDocumentCreate(BaseModel):
     contractorCNPJ: str | None
     hired: str | None
     hiredCNPJ: str | None
-    contractValue: str | None
+    contractValue: float | None
     baseDate: str | None
     warranty: str
     contractTerm: str | None
@@ -39,7 +39,7 @@ class GetDataBaseDocumentById(BaseModel):
     contractorCNPJ: str
     hired: str
     hiredCNPJ: str
-    contractValue: str | None
+    contractValue: float | None
     baseDate: str
     warranty: str
     contractTerm: str
@@ -54,7 +54,7 @@ class DataBaseDocument(BaseModel):
     contractorCNPJ: str
     hired: str
     hiredCNPJ: str
-    contractValue: str | None
+    contractValue: float | None
     baseDate: str
     index_id: str | None
     pdf_base: bytes | None

@@ -28,7 +28,7 @@ class DataBaseDocument(Base):
     contractorCNPJ = Column(String, nullable=True, index=True)
     hired = Column(String, nullable=True, index=True)
     hiredCNPJ = Column(String, nullable=True, index=True)
-    contractValue = Column(String, nullable=True, index=True)
+    contractValue = Column(Float, nullable=True, index=True)
     baseDate = Column(String, nullable=True, index=True)
     contractTerm = Column(String, nullable=True)
     warranty = Column(String, nullable=True)

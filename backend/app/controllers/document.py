@@ -23,7 +23,7 @@ from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import StorageContext, VectorStoreIndex
 from database.database import SessionLocal
 from database import schemas
-from app.utils.regex import extract_value
+from app.utils.regex import extract_value, convert_currency_to_number
 from enums.insurance_types import get_insurance_type_id
 import base64
 import io
@@ -55,7 +55,7 @@ def list_documents(
     skip: int = 0,
     limit: int = 100,
     name: str = None,
-    contractValue: str = None,
+    contractValue: float = None,
     status: str = None,
     baseDate: str = None,
     db: Session = Depends(get_db),
@@ -102,50 +102,7 @@ def get_document_by_id(
     )
 
     return JSONResponse(status_code=200, content={"data": responseModel.model_dump()})
-    # chroma_client = chromadb.HttpClient()
-    # db_document = get_database_document(db, document_id)
-    # chroma_collection = chroma_client.get_collection(str(db_document.index_id))
-    # vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-    # index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
-    # query_engine = index.as_query_engine(response_mode="compact", similarity_top_k=10)
-
-    # ## por incrivel q pareca isso aq funfou, testar em casa // compact retorna algo mais resumido
-    # response = query_engine.query(
-    #     "Me diga a data-base do valor do contrato se houver? Retorne em json sendo o campo data_base caso ache, caso contrário coloque null nesse campo"
-    # )
-    # python_obj = json.loads(response.response)
-    # print(python_obj["data_base"])
-    # prazo_contrato = query_engine.query(
-    #     "Qual o prazo/vigência do contrato? Ou seja, em quanto tempo o objeto do contrato deverá ser executado? Retorne em json sendo o campo vigencia_contrato caso ache, caso contrário coloque null nesses campos"
-    # )
-    # python_obj = json.loads(prazo_contrato.response)
-    # print(python_obj["vigencia_contrato"])
-
-    # garantia_contrato = query_engine.query(
-    #     "Qual a garantia do contrato se houver? Retorne em json sendo o campo garantia_contrato se encontrar valores"
-    # )
-
-    # tipo_contrato = query_engine.query(
-    #     """
-    #         Dentre as seguintes categorias de seguros, identifique a categoria ou as categorias que se aplicam ao contrato fornecido:
-
-    #         1. Seguro Garantia para Execução de Contratos: Garanta as assinaturas de contratos públicos ou privados.
-    #         2. Seguro Garantia para Licitações: Apresente garantias para sua licitação rapidamente.
-    #         3. Seguro Garantia para Loteamentos: Realize obras de loteamentos e garanta as exigências necessárias.
-    #         4. Seguro Garantia para Retenção de Pagamento: Recupere o pagamento de valores retidos ao fim de contratos.
-    #         5. Seguro Garantia para Processos Judiciais: Substitua e libere bens e valores depositados em juízo.
-    #         6. Seguro de Vida em Grupo: Cuide das pessoas que trabalham na sua empresa.
-    #         7. Seguro de Riscos de Engenharia: Proteja-se contra os riscos que podem afetar a sua obra.
-    #         8. Seguro de Responsabilidade Civil: Garanta segurança contra qualquer tipo de imprevisto.
-
-    #         Qual(is) categoria(s) de seguro se aplicam a este contrato específico? Responda o numero da categoria separado por virgula apenas
-    #         """
-    # )
-    # print(prazo_contrato)
-    # print(garantia_contrato)
-    # print(tipo_contrato)
-
-    return retrivied_basic_info
+    
 
 
 ## IMPLEMENTAR FUTURAMENTE
@@ -248,26 +205,29 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             "Me diga qual o valor total do contrato"
         )
 
-        extracted_value = extract_value(
+        extracted_value_str = extract_value(
             valor_contrato_texto.response
         )  ## mudar na modelagem do banco para float, editar pdf com valores reais
 
         if (
             cnpj_and_names is None
             or cnpj_and_names.contractor is None
-            and cnpj_and_names.contractor_cnpj is None
+            or cnpj_and_names.contractor_cnpj is None
             and cnpj_and_names.hired is None
             and cnpj_and_names.hired_cnpj is None
-            and extracted_value is None
+            and extracted_value_str is None
         ):
             os.remove(f"contracts/{file.filename}")
 
             return JSONResponse(
                 status_code=406, content={"error": "Documento invalido"}
             )
-
+        
+        print(extracted_value_str)
+        number_contract_value = convert_currency_to_number(extracted_value_str)
+        print(number_contract_value)
         base_date = query_engine.query(
-            "Me diga a data-base do valor do contrato se houver? Retorne em json sendo o campo data_base caso ache, caso contrário coloque null nesse campo"
+            "Me diga a data-base do valor do contrato se houver, ou o dia que tem que pagar o contrato? Retorne em json sendo o campo data_base no formato dd/mm/aaaa caso ache, caso contrário coloque null nesse campo"
         )
         base_date_value = json.loads(base_date.response)["data_base"]
 
@@ -282,19 +242,20 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             """
             Dentre as seguintes categorias de seguros, identifique a categoria ou as categorias que se aplicam ao contrato fornecido:
 
-            1. Seguro Garantia para Execução de Contratos: Garanta as assinaturas de contratos públicos ou privados.
-            2. Seguro Garantia para Licitações: Apresente garantias para sua licitação rapidamente.
-            3. Seguro Garantia para Loteamentos: Realize obras de loteamentos e garanta as exigências necessárias.
-            4. Seguro Garantia para Retenção de Pagamento: Recupere o pagamento de valores retidos ao fim de contratos.
-            5. Seguro Garantia para Processos Judiciais: Substitua e libere bens e valores depositados em juízo.
-            6. Seguro de Vida em Grupo: Cuide das pessoas que trabalham na sua empresa.
-            7. Seguro de Riscos de Engenharia: Proteja-se contra os riscos que podem afetar a sua obra.
-            8. Seguro de Responsabilidade Civil: Garanta segurança contra qualquer tipo de imprevisto.
+            1. Seguro Garantia para Execução de Contratos: Garanta as assinaturas de contratos públicos ou privados. \n
+            2. Seguro Garantia para Licitações: Apresente garantias para sua licitação rapidamente. \n
+            3. Seguro Garantia para Loteamentos: Realize obras de loteamentos e garanta as exigências necessárias. \n
+            4. Seguro Garantia para Retenção de Pagamento: Recupere o pagamento de valores retidos ao fim de contratos. \n
+            5. Seguro Garantia para Processos Judiciais: Substitua e libere bens e valores depositados em juízo. \n
+            6. Seguro de Vida em Grupo: Cuide das pessoas que trabalham na sua empresa. \n
+            7. Seguro de Riscos de Engenharia: Proteja-se contra os riscos que podem afetar a sua obra. \n
+            8. Seguro de Responsabilidade Civil: Garanta segurança contra qualquer tipo de imprevisto. \n
 
-            Qual(is) categoria(s) de seguro se aplicam a este contrato específico? Responda o numero da categoria separado por virgula apenas
+            Qual(is) categoria(s) de seguro se aplicam a este contrato específico? Retorne em json sendo o campo tipo_seguro a lista de numeros caso ache, caso contrário coloque null nesses campos
             """
         )
 
+        tipos_seguros_value = json.loads(tipo_seguros.response)["tipo_seguro"]
         file_content_base64 = base64.b64encode(file_content).decode("utf-8")
         images = convert_from_bytes(file_content, dpi=32, first_page=1, last_page=1)
         thumbnail_io = io.BytesIO()
@@ -309,7 +270,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             contractorCNPJ=cnpj_and_names.contractor_cnpj,
             hired=cnpj_and_names.hired,
             hiredCNPJ=cnpj_and_names.hired_cnpj,
-            contractValue=extract_value(valor_contrato_texto.response),
+            contractValue=number_contract_value,
             baseDate=str(base_date_value),
             contractTerm=str(prazo_contrato_value),
             warranty=str(garantia_contrato.response),
@@ -319,9 +280,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             status="PENDING",
         )
 
-        insurance_types_ids = get_insurance_type_id(tipo_seguros.response)
-        for insurance_type in insurance_types_ids:
-            print(insurance_type)
+        insurance_types_ids = list(tipos_seguros_value)
 
         ## isso aq eh para salvar no banco os doc_ids gerado no parsing para termos controle dps
         ## de quais nodes foram usados para criar e aumentar o kb_index e o index do proprio documento
