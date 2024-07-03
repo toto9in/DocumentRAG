@@ -1,14 +1,7 @@
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    Integer,
-    String,
-    DateTime,
-    func,
-)
+from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, func, Float, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
-
+from enums.insurance_types import EInsuranceTypes
 from .database import Base
 
 
@@ -39,7 +32,6 @@ class DataBaseDocument(Base):
     baseDate = Column(String, nullable=True, index=True)
     contractTerm = Column(String, nullable=True)
     warranty = Column(String, nullable=True)
-    types_of_insurances = Column(String, nullable=True, index=True)
     createdAt = Column(
         DateTime(timezone=True), server_default=func.now(), nullable=True
     )
@@ -59,6 +51,24 @@ class DocsIndexIds(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, index=True)
     document_id = Column(UUID(as_uuid=True), ForeignKey("document.id"))
     document = relationship("DataBaseDocument", back_populates="docs_index")
+
+
+class Insurance(Base):
+    __tablename__ = "insurance"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(Enum(EInsuranceTypes))
+    description = Column(String)
+
+
+class InsuranceNeedsAssessment(Base):
+    __tablename__ = "insurance_needs_assessment"
+
+    id = Column(Integer, primary_key=True, index=True)
+    document_id = Column(UUID(as_uuid=True), ForeignKey("document.id"))
+    insurance_id = Column(Integer)
+    premium_rate = Column(Float, nullable=True)
+    notes = Column(String, nullable=True)
 
 
 # class Company(Base):

@@ -1,7 +1,7 @@
 from typing import Annotated
 import uuid
 from fastapi import APIRouter, Depends, Path, UploadFile, WebSocket
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from llama_index.core.node_parser import SentenceSplitter
 from sqlalchemy.orm import Session
 from app.engine.loaders import get_file_document
@@ -23,11 +23,14 @@ from llama_index.core import StorageContext, VectorStoreIndex
 from database.database import SessionLocal
 from database import schemas
 from app.utils.regex import extract_value
+from enums.insurance_types import get_insurance_type_id
 import base64
 import io
 import chromadb
 from pdf2image import convert_from_bytes
 from pydantic import BaseModel, Field
+import json
+import os
 
 
 document_router = APIRouter()
@@ -75,29 +78,48 @@ def get_info(
     ##buscar no banco de dados se tem ja tem algum registro desse documento e dar return
     retrivied_basic_info = get_database_document(db, document_id)
 
-    class DataBaseDoContrato(BaseModel):
-        """Data model for DataBase"""
-        data_base_contrato: str = Field(description="data-base do contrato")
-
-
-
-
     chroma_client = chromadb.HttpClient()
     db_document = get_database_document(db, document_id)
     chroma_collection = chroma_client.get_collection(str(db_document.index_id))
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
-    query_engine = index.as_query_engine(response_mode="compact",  similarity_top_k=10)
+    query_engine = index.as_query_engine(response_mode="compact", similarity_top_k=10)
 
     ## por incrivel q pareca isso aq funfou, testar em casa // compact retorna algo mais resumido
-    response = query_engine.query("Me diga a data-base do valor do contrado se houver? Retorne em json caso ache, caso contrario coloque null")
-    prazo_contrato = query_engine.query(
-            "Qual o prazo/vigência do contrado? Ou seja, em quanto tempo objeto do contrato deverá ser executado? Retorne em json + o motivo resumido"
+    response = query_engine.query(
+        "Me diga a data-base do valor do contrato se houver? Retorne em json sendo o campo data_base caso ache, caso contrário coloque null nesse campo"
     )
-    garantia_contrato = query_engine.query("Qual a garantia do contrato se houver? Retorne em json se encontrar valores + motivo")
-    print(response)
+    python_obj = json.loads(response.response)
+    print(python_obj["data_base"])
+    prazo_contrato = query_engine.query(
+        "Qual o prazo/vigência do contrato? Ou seja, em quanto tempo o objeto do contrato deverá ser executado? Retorne em json sendo o campo vigencia_contrato caso ache, caso contrário coloque null nesses campos"
+    )
+    python_obj = json.loads(prazo_contrato.response)
+    print(python_obj["vigencia_contrato"])
+
+    garantia_contrato = query_engine.query(
+        "Qual a garantia do contrato se houver? Retorne em json sendo o campo garantia_contrato se encontrar valores"
+    )
+
+    tipo_contrato = query_engine.query(
+        """
+            Dentre as seguintes categorias de seguros, identifique a categoria ou as categorias que se aplicam ao contrato fornecido:
+
+            1. Seguro Garantia para Execução de Contratos: Garanta as assinaturas de contratos públicos ou privados.
+            2. Seguro Garantia para Licitações: Apresente garantias para sua licitação rapidamente.
+            3. Seguro Garantia para Loteamentos: Realize obras de loteamentos e garanta as exigências necessárias.
+            4. Seguro Garantia para Retenção de Pagamento: Recupere o pagamento de valores retidos ao fim de contratos.
+            5. Seguro Garantia para Processos Judiciais: Substitua e libere bens e valores depositados em juízo.
+            6. Seguro de Vida em Grupo: Cuide das pessoas que trabalham na sua empresa.
+            7. Seguro de Riscos de Engenharia: Proteja-se contra os riscos que podem afetar a sua obra.
+            8. Seguro de Responsabilidade Civil: Garanta segurança contra qualquer tipo de imprevisto.
+
+            Qual(is) categoria(s) de seguro se aplicam a este contrato específico? Responda o numero da categoria separado por virgula apenas
+            """
+    )
     print(prazo_contrato)
     print(garantia_contrato)
+    print(tipo_contrato)
 
     return retrivied_basic_info
 
@@ -165,7 +187,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
 
         file_content = await file.read()
         with open(f"contracts/{file.filename}", "wb+") as f:
-                f.write(file_content)
+            f.write(file_content)
 
         config = load_config_file_parser()
         documents = get_file_documents(
@@ -178,6 +200,112 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         )
 
         nodes = splitter.get_nodes_from_documents(documents)
+
+        simple_index_collection_id = uuid.uuid1()
+        chroma_collection = chroma_client.get_or_create_collection(
+            simple_index_collection_id
+        )
+        vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+        storage_context = StorageContext.from_defaults(vector_store=vector_store)
+        index = VectorStoreIndex(
+            storage_context=storage_context,
+            nodes=nodes,
+        )
+
+        chat_prompt = ChatPrompt(documents=documents)
+        cnpj_and_names = chat_prompt.get_cpnjs_and_names()
+
+        query_engine = index.as_query_engine(
+            response_mode="compact",
+            similarity_top_k=10,
+        )
+
+        valor_contrato_texto = query_engine.query(
+            "Me diga qual o valor total do contrato"
+        )
+
+        extracted_value = extract_value(valor_contrato_texto.response)
+
+        if (
+            cnpj_and_names is None
+            or cnpj_and_names.contractor is None
+            and cnpj_and_names.contractor_cnpj is None
+            and cnpj_and_names.hired is None
+            and cnpj_and_names.hired_cnpj is None
+            and extracted_value is None
+        ):
+            os.remove(f"contracts/{file.filename}")
+
+            return JSONResponse(
+                status_code=406, content={"error": "Documento invalido"}
+            )
+
+        base_date = query_engine.query(
+            "Me diga a data-base do valor do contrato se houver? Retorne em json sendo o campo data_base caso ache, caso contrário coloque null nesse campo"
+        )
+        base_date_value = json.loads(base_date.response)["data_base"]
+
+        prazo_contrato = query_engine.query(
+            "Qual o prazo/vigência do contrato? Ou seja, em quanto tempo o objeto do contrato deverá ser executado? Retorne em json sendo o campo vigencia_contrato caso ache, caso contrário coloque null nesses campos"
+        )
+        prazo_contrato_value = json.loads(prazo_contrato.response)["vigencia_contrato"]
+
+        garantia_contrato = query_engine.query("Qual a garantia do contrato se houver?")
+
+        tipo_seguros = query_engine.query(
+            """
+            Dentre as seguintes categorias de seguros, identifique a categoria ou as categorias que se aplicam ao contrato fornecido:
+
+            1. Seguro Garantia para Execução de Contratos: Garanta as assinaturas de contratos públicos ou privados.
+            2. Seguro Garantia para Licitações: Apresente garantias para sua licitação rapidamente.
+            3. Seguro Garantia para Loteamentos: Realize obras de loteamentos e garanta as exigências necessárias.
+            4. Seguro Garantia para Retenção de Pagamento: Recupere o pagamento de valores retidos ao fim de contratos.
+            5. Seguro Garantia para Processos Judiciais: Substitua e libere bens e valores depositados em juízo.
+            6. Seguro de Vida em Grupo: Cuide das pessoas que trabalham na sua empresa.
+            7. Seguro de Riscos de Engenharia: Proteja-se contra os riscos que podem afetar a sua obra.
+            8. Seguro de Responsabilidade Civil: Garanta segurança contra qualquer tipo de imprevisto.
+
+            Qual(is) categoria(s) de seguro se aplicam a este contrato específico? Responda o numero da categoria separado por virgula apenas
+            """
+        )
+
+        file_content_base64 = base64.b64encode(file_content).decode("utf-8")
+        images = convert_from_bytes(file_content, dpi=32, first_page=1, last_page=1)
+        thumbnail_io = io.BytesIO()
+        images[0].save(thumbnail_io, format="PNG")
+        thumbnail_base64 = base64.b64encode(thumbnail_io.getvalue()).decode("utf-8")
+
+        db_document = schemas.DataBaseDocumentCreate(
+            id=uuid.uuid1(),
+            name=file.filename,
+            knowledge_base_id=kb.id,
+            contractor=cnpj_and_names.contractor,
+            contractorCNPJ=cnpj_and_names.contractor_cnpj,
+            hired=cnpj_and_names.hired,
+            hiredCNPJ=cnpj_and_names.hired_cnpj,
+            contractValue=extract_value(valor_contrato_texto.response),
+            baseDate=str(base_date_value),
+            contractTerm=str(prazo_contrato_value),
+            warranty=str(garantia_contrato.response),
+            pdf=file_content_base64,
+            thumbnail=thumbnail_base64,
+            index_id=simple_index_collection_id,
+            status="PENDING",
+        )
+
+        insurance_types_ids = get_insurance_type_id(tipo_seguros.response)
+        for insurance_type in insurance_types_ids:
+            print(insurance_type)
+
+        ## isso aq eh para salvar no banco os doc_ids gerado no parsing para termos controle dps
+        ## de quais nodes foram usados para criar e aumentar o kb_index e o index do proprio documento
+        ## ajuda na hora de deletar um contrato, a deletar os nodes relacionados a ele do kb_index
+        create_db_document(
+            db,
+            db_document,
+            [node.node_id for node in nodes if node.node_id],
+            insurance_types_ids,
+        )
 
         if kb.contracts == []:
             # Se kb.contracts está vazio, crie um novo kb_index
@@ -202,69 +330,9 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
 
         update_kb_kb_index_id(db, kb.id, kb.name)
 
-        file_content_base64 = base64.b64encode(file_content).decode("utf-8")
-        images = convert_from_bytes(file_content, dpi=32, first_page=1, last_page=1)
-        thumbnail_io = io.BytesIO()
-        images[0].save(thumbnail_io, format="PNG")
-        thumbnail_base64 = base64.b64encode(thumbnail_io.getvalue()).decode("utf-8")
-
-        simple_index_collection_id = uuid.uuid1()
-        chroma_collection = chroma_client.get_or_create_collection(
-            simple_index_collection_id
+        return JSONResponse(
+            status_code=200, content={"success": "Documento salvo com sucesso"}
         )
-        vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-        storage_context = StorageContext.from_defaults(vector_store=vector_store)
-        index = VectorStoreIndex(
-            storage_context=storage_context,
-            nodes=nodes,
-        )
-
-        query_engine = index.as_query_engine(
-            similarity_top_k=8,
-        )
-        valor_contrato_texto = query_engine.query(
-            "Me diga qual o valor total do contrato"
-        )
-        base_date = query_engine.query("Me diga a data-base do valor do contrado?")
-        prazo_contrato = query_engine.query(
-            "Qual o prazo/vigência do contrado? Ou seja, em quanto tempo objeto do contrato deverá ser executado?"
-        )
-        garantia_contrato = query_engine.query("Qual a garantia do contrato?")
-        tipo_contrato = query_engine.query(
-            "Dentre as categorias de contratos: seguro garantia para execução de contratos, seguro garantia para licitaçôes, seguro garantia para loteamentos, seguro garantia para retenção de pagamento, seguro garantia para processos judiciais, seguro de vida em grupo, seguro de riscos de engenharia e seguro de responsabilidade civil, qual a categoria do contrato? (pode ter mais de uma categoria)"
-        )
-        chat_prompt = ChatPrompt(documents=documents)
-        cnpj_and_names = chat_prompt.get_cpnjs_and_names()
-
-        db_document = schemas.DataBaseDocumentCreate(
-            id=uuid.uuid1(),
-            name=file.filename,
-            knowledge_base_id=kb.id,
-            contractor=cnpj_and_names.contractor,
-            contractorCNPJ=cnpj_and_names.contractor_cnpj,
-            hired=cnpj_and_names.hired,
-            hiredCNPJ=cnpj_and_names.hired_cnpj,
-            contractValue=extract_value(valor_contrato_texto.response),
-            baseDate=base_date.response,
-            contractTerm=prazo_contrato.response,
-            warranty=garantia_contrato.response,
-            types_of_insurances=tipo_contrato.response,
-            pdf=file_content_base64,
-            thumbnail=thumbnail_base64,
-            index_id=simple_index_collection_id,
-            status="PENDING",
-        )
-
-        ## isso aq eh para salvar no banco os doc_ids gerado no parsing para termos controle dps
-        ## de quais nodes foram usados para criar e aumentar o kb_index e o index do proprio documento
-        ## ajuda na hora de deletar um contrato, a deletar os nodes relacionados a ele do kb_index
-        create_db_document(
-            db,
-            db_document,
-            [node.node_id for node in nodes if node.node_id],
-        )
-
-        return {"status": "success"}
     except Exception as e:
         return {"error": str(e)}
 

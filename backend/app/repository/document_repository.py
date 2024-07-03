@@ -78,6 +78,7 @@ def create_db_document(
     db: Session,
     document: schemas.DataBaseDocumentCreate,
     index_ids: List[String],
+    insurance_types_ids: List[int],
 ):
     db_document = models.DataBaseDocument(
         id=document.id,
@@ -92,7 +93,6 @@ def create_db_document(
         contractValue=document.contractValue,
         baseDate=document.baseDate,
         warranty=document.warranty,
-        types_of_insurances=document.types_of_insurances,
         contractTerm=document.contractTerm,
         index_id=document.index_id,
         status=document.status,
@@ -103,8 +103,16 @@ def create_db_document(
         for index_id in index_ids
     ]
 
+    db_insurances = [
+        models.InsuranceNeedsAssessment(
+            document_id=document.id, insurance_id=insurance_id
+        )
+        for insurance_id in insurance_types_ids
+    ]
+
     db.add(db_document)
     db.add_all(db_index_ids)
+    db.add_all(db_insurances)
     db.commit()
     db.refresh(db_document)
     return db_document

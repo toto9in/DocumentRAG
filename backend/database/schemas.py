@@ -21,15 +21,14 @@ class DataBaseDocumentCreate(BaseModel):
     knowledge_base_id: int
     pdf: str
     thumbnail: str
-    contractor: str
-    contractorCNPJ: str
-    hired: str
-    hiredCNPJ: str
+    contractor: str | None
+    contractorCNPJ: str | None
+    hired: str | None
+    hiredCNPJ: str | None
     contractValue: str | None
-    baseDate: str
+    baseDate: str | None
     warranty: str
-    types_of_insurances: str
-    contractTerm: str
+    contractTerm: str | None
     index_id: uuid.UUID
     status: str
 
