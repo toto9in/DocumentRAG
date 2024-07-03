@@ -33,6 +33,20 @@ class DataBaseDocumentCreate(BaseModel):
     status: str
 
 
+class GetDataBaseDocumentById(BaseModel):
+    name: str
+    contractor: str
+    contractorCNPJ: str
+    hired: str
+    hiredCNPJ: str
+    contractValue: str | None
+    baseDate: str
+    warranty: str
+    contractTerm: str
+    types_of_insurances: list[int]
+    pdf: str
+
+
 class DataBaseDocument(BaseModel):
     id: str
     name: str

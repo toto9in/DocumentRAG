@@ -3,19 +3,19 @@ import enum
 
 class EInsuranceTypes(enum.Enum):
     seguro_garantia_para_execucao_de_contratos = (
-        "seguro garantia para execução de contratos"
+        "seguro_garantia_para_execucao_de_contratos"
     )
-    seguro_garantia_para_licitacoes = "seguro garantia para licitaçôes"
-    seguro_garantia_para_loteamentos = "seguro garantia para loteamentos"
+    seguro_garantia_para_licitacoes = "seguro_garantia_para_licitacoes"
+    seguro_garantia_para_loteamentos = "seguro_garantia_para_loteamentos"
     seguro_garantia_para_retencao_de_pagamento = (
-        "seguro garantia para retenção de pagamento"
+        "seguro_garantia_para_retencao_de_pagamento"
     )
     seguro_garantia_para_processos_judiciais = (
-        "seguro garantia para processos judiciais"
+        "seguro_garantia_para_processos_judiciais"
     )
-    seguro_de_vida_em_grupo = "seguro de vida em grupo"
-    seguro_de_riscos_de_engenharia = "seguro de riscos de engenharia"
-    seguro_de_responsabilidade_civil = "seguro de responsabilidade civil"
+    seguro_de_vida_em_grupo = "seguro_de_vida_em_grupo"
+    seguro_de_riscos_de_engenharia = "seguro_de_riscos_de_engenharia"
+    seguro_de_responsabilidade_civil = "seguro_de_responsabilidade_civil"
 
 
 class EInsuranceTypesId(enum.Enum):

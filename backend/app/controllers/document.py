@@ -17,6 +17,7 @@ from app.repository.document_repository import (
     get_db_documents,
     delete_database_document,
 )
+from app.repository.insurance_repository import get_insurrance_types_by_document_id
 from app.repository.knowledge_base_repository import get_kb_by_id, update_kb_kb_index_id
 from llama_index.vector_stores.chroma import ChromaVectorStore
 from llama_index.core import StorageContext, VectorStoreIndex
@@ -62,64 +63,87 @@ def list_documents(
     return get_db_documents(db, skip, limit, name, contractValue, status, baseDate)
 
 
-## todo corrigir essa rota
 @document_router.get("/document/{document_id}")
-def get_document(
-    document_id: Annotated[str, Path(title="The ID of the document to get")],
-):
-    return get_file_document(document_id)
-
-
-@document_router.get("/document/{document_id}/basic_info")
-def get_info(
+def get_document_by_id(
     document_id: Annotated[str, Path(title="The ID of the document to get")],
     db: Session = Depends(get_db),
 ):
     ##buscar no banco de dados se tem ja tem algum registro desse documento e dar return
     retrivied_basic_info = get_database_document(db, document_id)
+    retrievied_insurance_types = get_insurrance_types_by_document_id(db, document_id)
+    if not retrivied_basic_info:
+        return JSONResponse(
+            status_code=404, content={"error": "Documento não encontrado"}
+        )
+    if not retrievied_insurance_types:
+        return JSONResponse(
+            status_code=404,
+            content={
+                "error": "Tipos de seguro não encontrados, pode ter ocorrido um erro no processamento do documento"
+            },
+        )
 
-    chroma_client = chromadb.HttpClient()
-    db_document = get_database_document(db, document_id)
-    chroma_collection = chroma_client.get_collection(str(db_document.index_id))
-    vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-    index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
-    query_engine = index.as_query_engine(response_mode="compact", similarity_top_k=10)
+    insurance_types = []
+    for retrieved_insurance_type in retrievied_insurance_types:
+        insurance_types.append(retrieved_insurance_type.insurance_id)
 
-    ## por incrivel q pareca isso aq funfou, testar em casa // compact retorna algo mais resumido
-    response = query_engine.query(
-        "Me diga a data-base do valor do contrato se houver? Retorne em json sendo o campo data_base caso ache, caso contrário coloque null nesse campo"
+    responseModel = schemas.GetDataBaseDocumentById(
+        name=retrivied_basic_info.name,
+        contractor=retrivied_basic_info.contractor,
+        contractorCNPJ=retrivied_basic_info.contractorCNPJ,
+        hired=retrivied_basic_info.hired,
+        hiredCNPJ=retrivied_basic_info.hiredCNPJ,
+        contractValue=retrivied_basic_info.contractValue,
+        baseDate=retrivied_basic_info.baseDate,
+        warranty=retrivied_basic_info.warranty,
+        contractTerm=retrivied_basic_info.contractTerm,
+        types_of_insurances=insurance_types,
+        pdf=retrivied_basic_info.pdf,
     )
-    python_obj = json.loads(response.response)
-    print(python_obj["data_base"])
-    prazo_contrato = query_engine.query(
-        "Qual o prazo/vigência do contrato? Ou seja, em quanto tempo o objeto do contrato deverá ser executado? Retorne em json sendo o campo vigencia_contrato caso ache, caso contrário coloque null nesses campos"
-    )
-    python_obj = json.loads(prazo_contrato.response)
-    print(python_obj["vigencia_contrato"])
 
-    garantia_contrato = query_engine.query(
-        "Qual a garantia do contrato se houver? Retorne em json sendo o campo garantia_contrato se encontrar valores"
-    )
+    return JSONResponse(status_code=200, content={"data": responseModel.model_dump()})
+    # chroma_client = chromadb.HttpClient()
+    # db_document = get_database_document(db, document_id)
+    # chroma_collection = chroma_client.get_collection(str(db_document.index_id))
+    # vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+    # index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+    # query_engine = index.as_query_engine(response_mode="compact", similarity_top_k=10)
 
-    tipo_contrato = query_engine.query(
-        """
-            Dentre as seguintes categorias de seguros, identifique a categoria ou as categorias que se aplicam ao contrato fornecido:
+    # ## por incrivel q pareca isso aq funfou, testar em casa // compact retorna algo mais resumido
+    # response = query_engine.query(
+    #     "Me diga a data-base do valor do contrato se houver? Retorne em json sendo o campo data_base caso ache, caso contrário coloque null nesse campo"
+    # )
+    # python_obj = json.loads(response.response)
+    # print(python_obj["data_base"])
+    # prazo_contrato = query_engine.query(
+    #     "Qual o prazo/vigência do contrato? Ou seja, em quanto tempo o objeto do contrato deverá ser executado? Retorne em json sendo o campo vigencia_contrato caso ache, caso contrário coloque null nesses campos"
+    # )
+    # python_obj = json.loads(prazo_contrato.response)
+    # print(python_obj["vigencia_contrato"])
 
-            1. Seguro Garantia para Execução de Contratos: Garanta as assinaturas de contratos públicos ou privados.
-            2. Seguro Garantia para Licitações: Apresente garantias para sua licitação rapidamente.
-            3. Seguro Garantia para Loteamentos: Realize obras de loteamentos e garanta as exigências necessárias.
-            4. Seguro Garantia para Retenção de Pagamento: Recupere o pagamento de valores retidos ao fim de contratos.
-            5. Seguro Garantia para Processos Judiciais: Substitua e libere bens e valores depositados em juízo.
-            6. Seguro de Vida em Grupo: Cuide das pessoas que trabalham na sua empresa.
-            7. Seguro de Riscos de Engenharia: Proteja-se contra os riscos que podem afetar a sua obra.
-            8. Seguro de Responsabilidade Civil: Garanta segurança contra qualquer tipo de imprevisto.
+    # garantia_contrato = query_engine.query(
+    #     "Qual a garantia do contrato se houver? Retorne em json sendo o campo garantia_contrato se encontrar valores"
+    # )
 
-            Qual(is) categoria(s) de seguro se aplicam a este contrato específico? Responda o numero da categoria separado por virgula apenas
-            """
-    )
-    print(prazo_contrato)
-    print(garantia_contrato)
-    print(tipo_contrato)
+    # tipo_contrato = query_engine.query(
+    #     """
+    #         Dentre as seguintes categorias de seguros, identifique a categoria ou as categorias que se aplicam ao contrato fornecido:
+
+    #         1. Seguro Garantia para Execução de Contratos: Garanta as assinaturas de contratos públicos ou privados.
+    #         2. Seguro Garantia para Licitações: Apresente garantias para sua licitação rapidamente.
+    #         3. Seguro Garantia para Loteamentos: Realize obras de loteamentos e garanta as exigências necessárias.
+    #         4. Seguro Garantia para Retenção de Pagamento: Recupere o pagamento de valores retidos ao fim de contratos.
+    #         5. Seguro Garantia para Processos Judiciais: Substitua e libere bens e valores depositados em juízo.
+    #         6. Seguro de Vida em Grupo: Cuide das pessoas que trabalham na sua empresa.
+    #         7. Seguro de Riscos de Engenharia: Proteja-se contra os riscos que podem afetar a sua obra.
+    #         8. Seguro de Responsabilidade Civil: Garanta segurança contra qualquer tipo de imprevisto.
+
+    #         Qual(is) categoria(s) de seguro se aplicam a este contrato específico? Responda o numero da categoria separado por virgula apenas
+    #         """
+    # )
+    # print(prazo_contrato)
+    # print(garantia_contrato)
+    # print(tipo_contrato)
 
     return retrivied_basic_info
 
@@ -224,7 +248,9 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             "Me diga qual o valor total do contrato"
         )
 
-        extracted_value = extract_value(valor_contrato_texto.response)
+        extracted_value = extract_value(
+            valor_contrato_texto.response
+        )  ## mudar na modelagem do banco para float, editar pdf com valores reais
 
         if (
             cnpj_and_names is None
