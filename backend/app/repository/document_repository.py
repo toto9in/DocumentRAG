@@ -1,7 +1,7 @@
 from typing import List
 from sqlalchemy.orm import Session
 from database import models, schemas
-from sqlalchemy import and_, cast, String, select
+from sqlalchemy import and_, cast, String, func, select
 
 
 def get_db_documents(
@@ -16,6 +16,7 @@ def get_db_documents(
     query = select(
         models.DataBaseDocument.id,
         models.DataBaseDocument.name,
+        models.DataBaseDocument.path,
         models.DataBaseDocument.contractValue,
         models.DataBaseDocument.status,
         models.DataBaseDocument.baseDate,
@@ -36,18 +37,27 @@ def get_db_documents(
     if filters:
         query = query.where(and_(*filters))
 
+    # Execute the query to get the total count before applying offset and limit
+    total_query = select(func.count()).select_from(query.subquery())
+    total = db.execute(total_query).scalar()
+
+    # Apply pagination
     documents = db.execute(query.offset(skip).limit(limit)).all()
 
-    return [
-        {
-            "id": doc.id,
-            "name": doc.name,
-            "status": doc.status,
-            "baseDate": doc.baseDate,
-            "contractValue": doc.contractValue,
-        }
-        for doc in documents
-    ]
+    return {
+        "total": total,
+        "documents": [
+            {
+                "id": doc.id,
+                "name": doc.name,
+                "path": doc.path,
+                "status": doc.status,
+                "baseDate": doc.baseDate,
+                "contractValue": doc.contractValue,
+            }
+            for doc in documents
+        ],
+    }
 
 
 def get_database_document(db: Session, document_id: str):
@@ -65,6 +75,12 @@ def delete_database_document(db: Session, document_id: str):
         .first()
     )
     if db_document:
+        db.execute(
+            models.InsuranceNeedsAssessment.__table__.delete().where(
+                models.InsuranceNeedsAssessment.document_id == document_id
+            )
+        )
+
         db.delete(db_document)
         db.commit()
     return db_document
@@ -79,6 +95,7 @@ def create_db_document(
     db_document = models.DataBaseDocument(
         id=document.id,
         name=document.name,
+        path=document.path,
         pdf=document.pdf,
         knowledge_base_id=document.knowledge_base_id,
         thumbnail=document.thumbnail,

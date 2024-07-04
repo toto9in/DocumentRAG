@@ -23,7 +23,7 @@ class DataBaseDocument(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, index=True)
     name = Column(String, index=True)
-    ##path = Column(String)
+    path = Column(String)
     contractor = Column(String, nullable=True, index=True)
     contractorCNPJ = Column(String, nullable=True, index=True)
     hired = Column(String, nullable=True, index=True)

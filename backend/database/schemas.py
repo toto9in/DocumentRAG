@@ -18,6 +18,7 @@ class DataBaseDocumentUpdate(BaseModel):
 class DataBaseDocumentCreate(BaseModel):
     id: uuid.UUID
     name: str
+    path: str
     knowledge_base_id: int
     pdf: str
     thumbnail: str
@@ -34,7 +35,9 @@ class DataBaseDocumentCreate(BaseModel):
 
 
 class GetDataBaseDocumentById(BaseModel):
+    id: str
     name: str
+    path: str
     contractor: str
     contractorCNPJ: str
     hired: str
@@ -44,12 +47,12 @@ class GetDataBaseDocumentById(BaseModel):
     warranty: str
     contractTerm: str
     types_of_insurances: list[int]
-    pdf: str
 
 
 class DataBaseDocument(BaseModel):
     id: str
     name: str
+    path: str
     contractor: str
     contractorCNPJ: str
     hired: str

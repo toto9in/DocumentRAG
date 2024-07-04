@@ -88,7 +88,9 @@ def get_document_by_id(
         insurance_types.append(retrieved_insurance_type.insurance_id)
 
     responseModel = schemas.GetDataBaseDocumentById(
+        id=str(retrivied_basic_info.id),
         name=retrivied_basic_info.name,
+        path=f"/static/{retrivied_basic_info.name}",
         contractor=retrivied_basic_info.contractor,
         contractorCNPJ=retrivied_basic_info.contractorCNPJ,
         hired=retrivied_basic_info.hired,
@@ -98,11 +100,9 @@ def get_document_by_id(
         warranty=retrivied_basic_info.warranty,
         contractTerm=retrivied_basic_info.contractTerm,
         types_of_insurances=insurance_types,
-        pdf=retrivied_basic_info.pdf,
     )
 
     return JSONResponse(status_code=200, content={"data": responseModel.model_dump()})
-    
 
 
 ## IMPLEMENTAR FUTURAMENTE
@@ -167,12 +167,23 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         chroma_client = chromadb.HttpClient(host="chromadb")
 
         file_content = await file.read()
-        with open(f"contracts/{file.filename}", "wb+") as f:
+        original_name = file.filename
+        name = os.path.splitext(original_name)[0]
+        name_without_spaces = original_name.replace(" ", "").lower()
+
+        name_part, extension = os.path.splitext(name_without_spaces)
+        unique_id = uuid.uuid1()
+
+        new_file_name = f"{name_part}{unique_id}{extension}"
+
+        new_file_path = os.path.join("contracts", new_file_name)
+
+        with open(new_file_path, "wb+") as f:
             f.write(file_content)
 
         config = load_config_file_parser()
         documents = get_file_documents(
-            file.filename, FileLoaderParserConfig(**config["file"])
+            new_file_name, FileLoaderParserConfig(**config["file"])
         )
 
         splitter = SentenceSplitter(
@@ -222,7 +233,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             return JSONResponse(
                 status_code=406, content={"error": "Documento invalido"}
             )
-        
+
         print(extracted_value_str)
         number_contract_value = convert_currency_to_number(extracted_value_str)
         print(number_contract_value)
@@ -264,7 +275,8 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
 
         db_document = schemas.DataBaseDocumentCreate(
             id=uuid.uuid1(),
-            name=file.filename,
+            name=name,
+            path=new_file_name,
             knowledge_base_id=kb.id,
             contractor=cnpj_and_names.contractor,
             contractorCNPJ=cnpj_and_names.contractor_cnpj,
@@ -335,7 +347,7 @@ def delete_document(
     nodes_ids = []
 
     for doc_index in db_document.docs_index:
-        nodes_ids.append(doc_index.id)
+        nodes_ids.append(str(doc_index.id))
 
     print(nodes_ids)
 

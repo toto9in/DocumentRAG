@@ -9,6 +9,7 @@ CREATE TABLE knowledge_base (
 CREATE TABLE document (
     "id" UUID PRIMARY KEY,
     "name" VARCHAR NOT NULL,
+    "path" VARCHAR NOT NULL,
     "contractor" VARCHAR,
     "contractorCNPJ" VARCHAR,
     "hired" VARCHAR,
