@@ -90,7 +90,7 @@ def get_document_by_id(
     responseModel = schemas.GetDataBaseDocumentById(
         id=str(retrivied_basic_info.id),
         name=retrivied_basic_info.name,
-        path=f"/static/{retrivied_basic_info.name}",
+        path=retrivied_basic_info.path,
         contractor=retrivied_basic_info.contractor,
         contractorCNPJ=retrivied_basic_info.contractorCNPJ,
         hired=retrivied_basic_info.hired,
@@ -247,7 +247,9 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         )
         prazo_contrato_value = json.loads(prazo_contrato.response)["vigencia_contrato"]
 
-        garantia_contrato = query_engine.query("Qual a garantia do contrato se houver?")
+        garantia_contrato = query_engine.query(
+            "Qual a garantia do contrato se houver? Responda resumidamente em até 2 linhas"
+        )
 
         tipo_seguros = query_engine.query(
             """
@@ -276,7 +278,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         db_document = schemas.DataBaseDocumentCreate(
             id=uuid.uuid1(),
             name=name,
-            path=new_file_name,
+            path=f"/static/{new_file_name}",
             knowledge_base_id=kb.id,
             contractor=cnpj_and_names.contractor,
             contractorCNPJ=cnpj_and_names.contractor_cnpj,

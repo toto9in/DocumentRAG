@@ -6,6 +6,7 @@ from database import models
 import uvicorn
 from dotenv import load_dotenv
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 
 load_dotenv()
 
@@ -13,6 +14,13 @@ load_dotenv()
 models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 app.mount("/static", StaticFiles(directory="contracts"), name="static")
 
