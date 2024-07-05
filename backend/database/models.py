@@ -1,4 +1,14 @@
-from sqlalchemy import Column, ForeignKey, Integer, String, DateTime, func, Float, Enum
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    String,
+    DateTime,
+    func,
+    Float,
+    Enum,
+    Date,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.dialects.postgresql import UUID
 from enums.insurance_types import EInsuranceTypes
@@ -29,7 +39,7 @@ class DataBaseDocument(Base):
     hired = Column(String, nullable=True, index=True)
     hiredCNPJ = Column(String, nullable=True, index=True)
     contractValue = Column(Float, nullable=True, index=True)
-    baseDate = Column(String, nullable=True, index=True)
+    baseDate = Column(Date, nullable=True, index=True)
     contractTerm = Column(String, nullable=True)
     warranty = Column(String, nullable=True)
     createdAt = Column(

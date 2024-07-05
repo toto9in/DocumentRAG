@@ -15,7 +15,7 @@ CREATE TABLE document (
     "hired" VARCHAR,
     "hiredCNPJ" VARCHAR,
     "contractValue" FLOAT,
-    "baseDate" VARCHAR,
+    "baseDate" Date,
     "contractTerm" VARCHAR,
     "warranty" VARCHAR,
     "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,

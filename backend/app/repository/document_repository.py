@@ -2,6 +2,7 @@ from typing import List
 from sqlalchemy.orm import Session
 from database import models, schemas
 from sqlalchemy import and_, cast, String, func, select
+from enums.order_by import OrderEnum
 
 
 def get_db_documents(
@@ -12,6 +13,8 @@ def get_db_documents(
     contractValue: float = None,
     status: str = None,
     baseDate: str = None,
+    orderValuesBy: OrderEnum = None,
+    orderDatesBy: OrderEnum = None,
 ):
     query = select(
         models.DataBaseDocument.id,
@@ -37,12 +40,21 @@ def get_db_documents(
     if filters:
         query = query.where(and_(*filters))
 
-    # Execute the query to get the total count before applying offset and limit
+    if orderValuesBy is not None:
+        if orderValuesBy == OrderEnum.ASC:
+            query = query.order_by(models.DataBaseDocument.contractValue.asc())
+        elif orderValuesBy == OrderEnum.DESC:
+            query = query.order_by(models.DataBaseDocument.contractValue.desc())
+
+    if orderDatesBy is not None:
+        if orderDatesBy == OrderEnum.ASC:
+            query = query.order_by(models.DataBaseDocument.baseDate.asc())
+        elif orderDatesBy == OrderEnum.DESC:
+            query = query.order_by(models.DataBaseDocument.baseDate.desc())
+
     total_query = select(func.count()).select_from(query.subquery())
     total = db.execute(total_query).scalar()
 
-    # Apply pagination
-    # Apply pagination
     documents = db.execute(query.offset(skip).limit(limit)).fetchall()
 
     return {

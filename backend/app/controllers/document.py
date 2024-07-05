@@ -1,3 +1,4 @@
+from enum import Enum
 from typing import Annotated
 import uuid
 from fastapi import APIRouter, Depends, Path, UploadFile, WebSocket
@@ -30,6 +31,8 @@ import io
 import chromadb
 from pdf2image import convert_from_bytes
 from pydantic import BaseModel, Field
+from datetime import datetime
+from enums.order_by import OrderEnum
 import json
 import os
 
@@ -56,11 +59,23 @@ def list_documents(
     limit: int = 100,
     name: str = None,
     contractValue: float = None,
+    orderValuesBy: OrderEnum = None,
     status: str = None,
     baseDate: str = None,
+    orderDatesBy: OrderEnum = None,
     db: Session = Depends(get_db),
 ):
-    return get_db_documents(db, skip, limit, name, contractValue, status, baseDate)
+    return get_db_documents(
+        db,
+        skip,
+        limit,
+        name,
+        contractValue,
+        status,
+        baseDate,
+        orderValuesBy,
+        orderDatesBy,
+    )
 
 
 @document_router.get("/document/{document_id}")
@@ -96,7 +111,7 @@ def get_document_by_id(
         hired=retrivied_basic_info.hired,
         hiredCNPJ=retrivied_basic_info.hiredCNPJ,
         contractValue=retrivied_basic_info.contractValue,
-        baseDate=retrivied_basic_info.baseDate,
+        baseDate=str(retrivied_basic_info.baseDate),
         warranty=retrivied_basic_info.warranty,
         contractTerm=retrivied_basic_info.contractTerm,
         types_of_insurances=insurance_types,
@@ -248,6 +263,8 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
         )
         base_date_value = json.loads(base_date.response)["data_base"]
 
+        data_object = datetime.strptime(base_date_value, "%d/%m/%Y").date()
+
         prazo_contrato = query_engine.query(
             "Qual o prazo/vigência do contrato? Ou seja, em quanto tempo o objeto do contrato deverá ser executado? Retorne em json sendo o campo vigencia_contrato caso ache, caso contrário coloque null nesses campos"
         )
@@ -291,7 +308,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
             hired=cnpj_and_names.hired,
             hiredCNPJ=cnpj_and_names.hired_cnpj,
             contractValue=number_contract_value,
-            baseDate=str(base_date_value),
+            baseDate=data_object,
             contractTerm=str(prazo_contrato_value),
             warranty=str(garantia_contrato.response),
             pdf=file_content_base64,
@@ -351,13 +368,15 @@ def delete_document(
 
     ## primeiro pegar no banco esse db para pegar o kb_id dele e deletar esse documento do kb_index
     db_document = get_database_document(db, document_id)
+    if not db_document:
+        return JSONResponse(
+            status_code=404, content={"error": "Documento não encontrado"}
+        )
 
     nodes_ids = []
 
     for doc_index in db_document.docs_index:
         nodes_ids.append(str(doc_index.id))
-
-    print(nodes_ids)
 
     kb = get_kb_by_id(db, db_document.knowledge_base_id)
     chroma_collection = chroma_client.get_collection(kb.name)
@@ -368,4 +387,6 @@ def delete_document(
 
     delete_database_document(db, document_id)
 
-    return {"status": "success"}
+    return JSONResponse(
+        status_code=200, content={"success": "Documento deletado com sucesso"}
+    )

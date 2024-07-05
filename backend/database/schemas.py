@@ -1,3 +1,4 @@
+from datetime import datetime, date
 import uuid
 from pydantic import BaseModel
 
@@ -9,7 +10,7 @@ class DataBaseDocumentUpdate(BaseModel):
     hired: str
     hiredCNPJ: str
     contractValue: float | None
-    baseDate: str
+    baseDate: date
     warranty: str
     types_of_insurances: str
     contractTerm: str
@@ -27,7 +28,7 @@ class DataBaseDocumentCreate(BaseModel):
     hired: str | None
     hiredCNPJ: str | None
     contractValue: float | None
-    baseDate: str | None
+    baseDate: date
     warranty: str
     contractTerm: str | None
     index_id: uuid.UUID
@@ -58,7 +59,7 @@ class DataBaseDocument(BaseModel):
     hired: str
     hiredCNPJ: str
     contractValue: float | None
-    baseDate: str
+    baseDate: date
     index_id: str | None
     pdf_base: bytes | None
     knowledge_base_id: int
