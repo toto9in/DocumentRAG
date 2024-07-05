@@ -152,8 +152,14 @@ def download_document(
     db: Session = Depends(get_db),
 ):
     db_document = get_database_document(db, document_id)
+    if not db_document:
+        return JSONResponse(
+            status_code=404, content={"error": "Documento não encontrado"}
+        )
 
-    return FileResponse(f"contracts/{db_document.name}")
+    modified_path = db_document.path.replace("/static/", "")
+
+    return FileResponse(f"contracts/{modified_path}")
 
 
 # endpoint to save document in contracts folder, change status return later and return object with id

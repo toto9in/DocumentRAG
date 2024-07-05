@@ -42,7 +42,8 @@ def get_db_documents(
     total = db.execute(total_query).scalar()
 
     # Apply pagination
-    documents = db.execute(query.offset(skip).limit(limit)).all()
+    # Apply pagination
+    documents = db.execute(query.offset(skip).limit(limit)).fetchall()
 
     return {
         "total": total,
