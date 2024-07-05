@@ -1,7 +1,7 @@
 from enum import Enum
 from typing import Annotated
 import uuid
-from fastapi import APIRouter, Depends, Path, UploadFile, WebSocket
+from fastapi import APIRouter, Depends, Path, UploadFile, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse
 from llama_index.core.node_parser import SentenceSplitter
 from sqlalchemy.orm import Session
@@ -143,22 +143,26 @@ async def websocket_endpoint(
     websocket: WebSocket, document_id: str, db: Session = Depends(get_db)
 ):
     await websocket.accept()
-    while True:
-        data = await websocket.receive_text()
-        chroma_client = chromadb.HttpClient(host="chromadb")
-        db_document = get_database_document(db, document_id)
-        chroma_collection = chroma_client.get_collection(str(db_document.index_id))
-        vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
-        index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            chroma_client = chromadb.HttpClient(host="chromadb")
+            db_document = get_database_document(db, document_id)
+            chroma_collection = chroma_client.get_collection(str(db_document.index_id))
+            vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
+            index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
 
-        chat_engine = index.as_chat_engine(
-            chat_mode="openai",
-            similarity_top_k=10,
-        )
-        streaming_response = chat_engine.stream_chat(data)
-        for token in streaming_response.response_gen:
-            print(token)
-            await websocket.send_text(token)
+            chat_engine = index.as_chat_engine(
+                chat_mode="openai",
+                similarity_top_k=10,
+            )
+            streaming_response = chat_engine.chat(data)
+            print(streaming_response.response)
+            await websocket.send_text(streaming_response.response)
+    except WebSocketDisconnect:
+        print(f"WebSocket disconnected for document_id: {document_id}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
 
 
 @document_router.get("/{document_id}/download")
