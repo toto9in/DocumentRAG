@@ -115,6 +115,7 @@ def get_document_by_id(
         warranty=retrivied_basic_info.warranty,
         contractTerm=retrivied_basic_info.contractTerm,
         types_of_insurances=insurance_types,
+        pdf64=retrivied_basic_info.pdf,
     )
 
     return JSONResponse(status_code=200, content={"data": responseModel.model_dump()})
@@ -125,7 +126,7 @@ def get_document_by_id(
 def search_documents(query: str, db: Session = Depends(get_db)):
     kb = get_kb_by_id(db, 1)
 
-    chroma_client = chromadb.HttpClient(host="chromadb")
+    chroma_client = chromadb.HttpClient()
     chroma_collection = chroma_client.get_collection(kb.name)
     vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
     kb_index = VectorStoreIndex.from_vector_store(vector_store=vector_store)
@@ -146,7 +147,7 @@ async def websocket_endpoint(
     try:
         while True:
             data = await websocket.receive_text()
-            chroma_client = chromadb.HttpClient(host="chromadb")
+            chroma_client = chromadb.HttpClient()
             db_document = get_database_document(db, document_id)
             chroma_collection = chroma_client.get_collection(str(db_document.index_id))
             vector_store = ChromaVectorStore(chroma_collection=chroma_collection)
@@ -189,7 +190,7 @@ async def upload_document(file: UploadFile, db: Session = Depends(get_db)):
 
         ## no docker tem que passar pro HttpClient(host="chromadb")
         ## para uso local tire
-        chroma_client = chromadb.HttpClient(host="chromadb")
+        chroma_client = chromadb.HttpClient()
 
         file_content = await file.read()
         original_name = file.filename
@@ -368,7 +369,7 @@ def delete_document(
     document_id: Annotated[str, Path(title="The ID of the document to delete")],
     db: Session = Depends(get_db),
 ):
-    chroma_client = chromadb.HttpClient(host="chromadb")
+    chroma_client = chromadb.HttpClient()
 
     ## primeiro pegar no banco esse db para pegar o kb_id dele e deletar esse documento do kb_index
     db_document = get_database_document(db, document_id)

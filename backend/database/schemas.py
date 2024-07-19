@@ -48,6 +48,7 @@ class GetDataBaseDocumentById(BaseModel):
     warranty: str
     contractTerm: str
     types_of_insurances: list[int]
+    pdf64: str
 
 
 class DataBaseDocument(BaseModel):
